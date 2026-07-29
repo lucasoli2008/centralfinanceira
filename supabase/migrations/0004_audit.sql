@@ -192,6 +192,14 @@ begin
       into v_org, v_dates
     from public.financial_entries e
     where e.id = coalesce(new.entry_id, old.entry_id);
+
+    -- Exclusão física em cascata: quando o lançamento pai já foi removido na
+    -- mesma instrução (ON DELETE CASCADE), esta busca não encontra nada. A
+    -- regra de mês fechado já foi validada pelo trigger do próprio
+    -- financial_entries antes da cascata — nada a checar aqui.
+    if v_org is null then
+      return coalesce(new, old);
+    end if;
   end if;
 
   select s.monthly_closing_enabled into v_enabled

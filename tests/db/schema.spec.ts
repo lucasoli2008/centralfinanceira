@@ -391,6 +391,40 @@ describe("exclusão lógica", () => {
   });
 });
 
+describe("exclusão física administrativa", () => {
+  it("remove um lançamento fechado sem quebrar no repasse em cascata", async () => {
+    // Regressão: excluir fisicamente um financial_entries com repasses fazia
+    // o ON DELETE CASCADE disparar o trigger de mês fechado em
+    // entry_broker_splits, que buscava o lançamento pai (já removido na mesma
+    // instrução) e caía num FOREACH sobre array nulo.
+    const entryId = await saveEntry(
+      roberta.ownerId,
+      saleEntry(roberta.brokerIds[0], { entry_date: "2025-04-10", reference: "VD-HARD-DELETE" }),
+    );
+
+    await asUser(db, roberta.ownerId, () => db.query(`select public.app_close_month(2025, 4)`));
+
+    // Procedimento documentado em docs/SECURITY.md: reabrir o mês antes da
+    // exclusão física administrativa.
+    await asUser(db, roberta.ownerId, () =>
+      db.query(`select public.app_reopen_month(2025, 4, 'Exclusão física de teste administrativo')`),
+    );
+
+    await expect(
+      db.query(`delete from public.entry_broker_splits where entry_id = $1`, [entryId]),
+    ).resolves.toBeTruthy();
+
+    await expect(
+      db.query(`delete from public.financial_entries where id = $1`, [entryId]),
+    ).resolves.toBeTruthy();
+
+    const remaining = await db.query(`select 1 from public.financial_entries where id = $1`, [
+      entryId,
+    ]);
+    expect(remaining.rows).toHaveLength(0);
+  });
+});
+
 describe("auditoria", () => {
   it("registra criação, edição e exclusão e é imutável", async () => {
     const entryId = await saveEntry(

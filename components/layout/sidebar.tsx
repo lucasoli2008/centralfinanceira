@@ -99,12 +99,21 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
       href={item.href}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "group flex h-8 items-center gap-2.5 rounded-control px-2.5 text-[13px] transition-colors duration-100",
+        "group relative flex h-8 items-center gap-2.5 rounded-control px-2.5 text-[13px] font-medium transition-colors duration-100",
         isActive
-          ? "bg-accent-soft font-medium text-accent"
-          : "text-muted hover:bg-surface-muted hover:text-foreground",
+          ? "bg-accent-soft font-semibold text-accent"
+          : "text-foreground/80 hover:bg-surface-muted hover:text-foreground",
       )}
     >
+      {/* Barra de destaque do item ativo — âncora visual extra, no padrão de
+          sidebars de produtos financeiros (Stripe, Linear, Mercury). */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-accent transition-transform duration-150",
+          isActive ? "scale-y-100" : "scale-y-0",
+        )}
+      />
       <Icon
         className={cn(
           "size-[15px] shrink-0 transition-colors",
@@ -148,7 +157,7 @@ function UserFooter({ userName, userEmail, roleLabel, onSignOut }: Omit<ShellIde
               {initials(userName)}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[12.5px] font-medium leading-tight">
+              <span className="block truncate text-[12.5px] font-semibold leading-tight">
                 {userName}
               </span>
               <span className="block truncate text-[11px] leading-tight text-subtle">

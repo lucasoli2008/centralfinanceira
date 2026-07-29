@@ -26,7 +26,7 @@
   --foreground-subtle: #8b8b85;
 
   /* Marca (configurável pelo administrador) */
-  --accent: #0f5132;
+  --accent: #b3242c;
   --accent-foreground: #ffffff;
   --accent-hover: color-mix(in srgb, var(--accent) 86%, black);
   --accent-soft: color-mix(in srgb, var(--accent) 6%, white);
