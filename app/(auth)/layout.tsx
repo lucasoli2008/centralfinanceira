@@ -1,80 +1,105 @@
-import { BarChart3, FileCheck2, ShieldCheck, Wallet } from "lucide-react";
+import { ShieldCheck, TrendingUp, Wallet } from "lucide-react";
 
-const HIGHLIGHTS = [
-  {
-    icon: Wallet,
-    title: "Uma base única",
-    description: "Vendas e locações no mesmo lugar, sem uma aba por mês.",
-  },
-  {
-    icon: BarChart3,
-    title: "Números que fecham",
-    description: "Dashboard, tabelas e PDFs sempre com o mesmo total.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Histórico protegido",
-    description: "Auditoria de cada alteração e fechamento mensal.",
-  },
-  {
-    icon: FileCheck2,
-    title: "Relatórios prontos",
-    description: "PDF mensal, anual e por corretor em um clique.",
-  },
-];
-
+/**
+ * Layout de autenticação em duas colunas.
+ *
+ * O painel esquerdo existe para transmitir o que o produto é (controle
+ * financeiro sério, não uma planilha) — com profundidade e um gráfico
+ * desenhado em SVG, sem imagem externa e sem peso no carregamento.
+ */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
-      {/* Painel da marca — apenas em telas grandes */}
-      <aside className="relative hidden w-[46%] max-w-[560px] flex-col justify-between overflow-hidden bg-accent px-10 py-12 text-accent-foreground lg:flex">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
-            backgroundSize: "22px 22px",
-          }}
-        />
-
+      <aside className="surface-hero dot-grid relative hidden w-[48%] max-w-[600px] flex-col justify-between rounded-none px-12 py-12 lg:flex">
         <div className="relative flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-[8px] bg-white/12 backdrop-blur">
+          <span className="flex size-8 items-center justify-center rounded-[9px] bg-white/12 backdrop-blur">
             <Wallet className="size-[17px]" />
           </span>
-          <span className="text-[14px] font-semibold tracking-[-0.01em]">Central Financeira</span>
+          <span className="text-[14px] font-semibold tracking-[-0.01em] text-white">
+            Central Financeira
+          </span>
         </div>
 
         <div className="relative">
-          <h2 className="max-w-md text-[26px] font-semibold leading-[1.25] tracking-[-0.025em]">
-            A planilha frágil ficou para trás.
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/45">
+            Roberta Oliveira Imóveis
+          </p>
+          <h2 className="mt-3 max-w-md text-[30px] font-semibold leading-[1.15] tracking-[-0.03em] text-white">
+            Cada centavo de comissão no lugar certo.
           </h2>
-          <p className="mt-3 max-w-sm text-[13.5px] leading-relaxed text-white/70">
-            Controle das comissões da imobiliária com precisão de centavos, histórico auditável e
-            relatórios que você pode imprimir sem revisar duas vezes.
+          <p className="mt-4 max-w-sm text-[13.5px] leading-relaxed text-white/60">
+            Vendas e locações em uma base única, repasses calculados sem erro de arredondamento e
+            relatórios que você imprime sem revisar duas vezes.
           </p>
 
-          <ul className="mt-9 grid gap-x-6 gap-y-5 sm:grid-cols-2">
-            {HIGHLIGHTS.map((item) => (
-              <li key={item.title}>
-                <item.icon className="size-4 text-white/60" />
-                <p className="mt-2 text-[13px] font-medium">{item.title}</p>
-                <p className="mt-0.5 text-[12px] leading-snug text-white/55">{item.description}</p>
-              </li>
-            ))}
-          </ul>
+          {/* Gráfico decorativo — desenhado, não uma imagem */}
+          <div className="mt-9 rounded-card border border-white/12 bg-white/[0.04] p-4 backdrop-blur-sm">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-white/45">
+                Receita líquida
+              </span>
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-white/80">
+                <TrendingUp className="size-3" />
+                12 meses
+              </span>
+            </div>
+
+            <svg
+              viewBox="0 0 300 72"
+              preserveAspectRatio="none"
+              className="mt-3 h-16 w-full"
+              aria-hidden="true"
+            >
+              <defs>
+                <linearGradient id="authTrend" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="white" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="white" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M0,58 L25,52 L50,55 L75,42 L100,46 L125,33 L150,37 L175,26 L200,30 L225,19 L250,22 L275,12 L300,8 L300,72 L0,72 Z"
+                fill="url(#authTrend)"
+              />
+              <path
+                d="M0,58 L25,52 L50,55 L75,42 L100,46 L125,33 L150,37 L175,26 L200,30 L225,19 L250,22 L275,12 L300,8"
+                fill="none"
+                stroke="white"
+                strokeOpacity="0.85"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+              <circle cx="300" cy="8" r="3" fill="white" />
+            </svg>
+
+            <div className="mt-1 grid grid-cols-3 gap-2 border-t border-white/10 pt-3">
+              {[
+                { label: "Vendas", value: "6%" },
+                { label: "Locações", value: "100%" },
+                { label: "Repasse", value: "40%" },
+              ].map((item) => (
+                <div key={item.label}>
+                  <p className="text-[10px] uppercase tracking-[0.05em] text-white/40">
+                    {item.label}
+                  </p>
+                  <p className="text-[13px] font-semibold tabular text-white/90">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <p className="relative text-[11.5px] text-white/45">
-          Acesso restrito à equipe da imobiliária · Sem cadastro público
+        <p className="relative flex items-center gap-1.5 text-[11.5px] text-white/40">
+          <ShieldCheck className="size-3.5" />
+          Acesso restrito à equipe · Sem cadastro público
         </p>
       </aside>
 
-      {/* Formulário */}
       <main className="flex flex-1 items-center justify-center bg-background px-4 py-10 sm:px-8">
-        <div className="w-full max-w-[360px]">
-          <div className="mb-7 flex items-center gap-2.5 lg:hidden">
-            <span className="flex size-8 items-center justify-center rounded-[8px] bg-accent text-accent-foreground shadow-card">
+        <div className="w-full max-w-[368px] animate-enter">
+          <div className="mb-8 flex items-center gap-2.5 lg:hidden">
+            <span className="flex size-8 items-center justify-center rounded-[9px] bg-accent text-accent-foreground shadow-card">
               <Wallet className="size-[17px]" />
             </span>
             <span className="text-[14px] font-semibold tracking-[-0.01em]">Central Financeira</span>

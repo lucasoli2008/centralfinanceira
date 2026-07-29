@@ -76,12 +76,52 @@ Regra de ouro: **nenhuma regra financeira dentro de componente React.** Cálculo
 ## Arquitetura visual das telas
 
 - **App shell**: sidebar de 236px com grupos nomeados e menu do usuário no rodapé; topbar de 52px
-  com localização atual e ação primária "Novo lançamento".
-- **Dashboard**: 4 KPIs em destaque → 3 grupos compactos de indicadores (Vendas, Locações,
-  Indicadores) → gráficos → ranking → 12 meses. Evita a poluição de dezenas de cards idênticos.
+  com localização atual, busca de comandos (⌘K) e ação primária "Novo lançamento".
+- **Dashboard**: painel herói (receita líquida) + composição → evolução mensal + receita por mês →
+  3 grupos compactos de indicadores → vendas vs. locações → faixa dos 12 meses → ranking.
+  A hierarquia responde primeiro "quanto sobrou", depois "de onde veio".
 - **Listas**: resumo do período em cards, barra de filtros, tabela com rodapé de totais e colunas
   configuráveis (preferência salva em `localStorage`).
 - **Formulário de lançamento**: 3 seções + painel de resumo fixo à direita (empilhado no celular).
+
+### Painel herói (`components/dashboard/hero-panel.tsx`)
+
+O **único** elemento de alto contraste da interface: fundo escuro na cor da marca
+(`.surface-hero` com gradiente radial + `.dot-grid`), número em `display-number`
+(36–46px), variação contra o período anterior, sparkline dos últimos 12 meses e um rodapé com
+comissão bruta, repasses e nº de entradas.
+
+Usar com parcimônia — no máximo um por tela. Se tudo grita, nada é lido.
+
+### Busca de comandos (⌘K)
+
+`components/ui/command-palette.tsx`, escrita sem dependência extra: navegação, criação de
+lançamento, PDFs, períodos do dashboard e atalho para cada mês do ano. Busca sem acento e sem
+diferenciar caixa; navegação por setas, `↵` e `esc`.
+
+### Barras de proporção e faixa de meses
+
+- `ShareBar` mostra a participação de cada corretor nos repasses (`sparkline.tsx`);
+- `MonthStrip` compara os 12 meses pela altura da barra em relação ao melhor mês, destacando o
+  recorde e marcando meses fechados — leitura de sazonalidade que 12 cards idênticos não davam.
+
+## Movimento
+
+Curto, discreto e sempre opcional:
+
+| Recurso | Onde | Duração |
+| --- | --- | --- |
+| `.animate-enter` | Diálogos, formulário de login | 420ms |
+| `.stagger > *` | Blocos do dashboard (40ms de defasagem) | 420ms |
+| `.hover-lift` | Cards clicáveis (meses) | 120ms |
+| `.press` | Botões | 120ms |
+| Gráficos | Recharts, `animationDuration: 620` | 620ms |
+
+`prefers-reduced-motion` zera todas as durações e desliga o `hover-lift`.
+
+**Decisão registrada:** não usamos contagem animada de números. O valor final é sempre renderizado
+no servidor — em um sistema financeiro, um "R$ 0,00" transitório (ou permanente, se o JavaScript
+falhar) é pior do que a ausência de animação.
 
 ## Gráficos
 

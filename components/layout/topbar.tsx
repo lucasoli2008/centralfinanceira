@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/menu";
+import { CommandPalette } from "@/components/ui/command-palette";
 import { MobileNav, type ShellIdentity } from "./sidebar";
 
 /** Rótulo da seção atual, para o usuário sempre saber onde está. */
@@ -45,6 +46,8 @@ export function Topbar(identity: ShellIdentity) {
           <li className="truncate font-medium text-foreground">{section?.label ?? "Central Financeira"}</li>
         </ol>
       </nav>
+
+      <CommandPalette />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

@@ -21,6 +21,7 @@ import type { MonthlySeriesRow } from "@/types/database";
 
 const AXIS_TICK = { fontSize: 10.5, fill: "var(--foreground-subtle)" } as const;
 const GRID = "var(--border)";
+const ANIMATION = { animationDuration: 620, animationEasing: "ease-out" } as const;
 
 interface SeriesPoint {
   label: string;
@@ -43,23 +44,28 @@ function toPoints(series: MonthlySeriesRow[]): SeriesPoint[] {
 }
 
 /** Legenda própria: mais legível e alinhada ao design system. */
-function ChartLegend({ items }: { items: { label: string; color: string; dashed?: boolean }[] }) {
+function ChartLegend({
+  items,
+}: {
+  items: { label: string; color: string; dashed?: boolean; value?: string }[];
+}) {
   return (
     <ul className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
       {items.map((item) => (
-        <li key={item.label} className="flex items-center gap-1.5 text-[11.5px] text-muted">
+        <li key={item.label} className="flex items-baseline gap-1.5 text-[11.5px]">
           <span
             aria-hidden="true"
-            className="inline-block h-0.5 w-3 rounded-full"
+            className="inline-block h-[3px] w-3.5 shrink-0 self-center rounded-full"
             style={
               item.dashed
                 ? {
-                    backgroundImage: `repeating-linear-gradient(to right, ${item.color} 0 3px, transparent 3px 5px)`,
+                    backgroundImage: `repeating-linear-gradient(to right, ${item.color} 0 4px, transparent 4px 6px)`,
                   }
                 : { backgroundColor: item.color }
             }
           />
-          {item.label}
+          <span className="text-muted">{item.label}</span>
+          {item.value ? <span className="font-semibold tabular">{item.value}</span> : null}
         </li>
       ))}
     </ul>
@@ -78,9 +84,11 @@ function ChartTooltip({
   if (!active || !payload?.length) return null;
 
   return (
-    <div className="min-w-40 rounded-control border border-border bg-surface px-2.5 py-2 shadow-popover">
-      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-subtle">{label}</p>
-      <ul className="space-y-0.5">
+    <div className="min-w-44 overflow-hidden rounded-control border border-border bg-surface shadow-popover">
+      <p className="border-b border-border bg-surface-sunken px-2.5 py-1.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-subtle">
+        {label}
+      </p>
+      <ul className="space-y-1 px-2.5 py-2">
         {payload.map((item) => (
           <li key={item.name} className="flex items-center justify-between gap-4 text-[12px]">
             <span className="flex items-center gap-1.5 text-muted">
@@ -102,7 +110,8 @@ const yAxisProps = {
   tick: AXIS_TICK,
   tickLine: false,
   axisLine: false,
-  width: 62,
+  width: 60,
+  tickCount: 5,
   tickFormatter: (value: number) => formatCompactCurrency(value),
 } as const;
 
@@ -112,52 +121,68 @@ const xAxisProps = {
   tickLine: false,
   axisLine: false,
   interval: "preserveStartEnd",
-  minTickGap: 12,
+  minTickGap: 14,
+  dy: 4,
 } as const;
 
 export function MonthlyEvolutionChart({ series }: { series: MonthlySeriesRow[] }) {
   const data = toPoints(series);
+  const latest = data[data.length - 1];
 
   return (
     <div>
       <ChartLegend
         items={[
-          { label: "Comissão bruta", color: "var(--accent)" },
-          { label: "Receita líquida", color: "var(--info)" },
+          { label: "Comissão bruta", color: "var(--accent)", value: latest ? formatCurrency(latest.gross) : undefined },
+          { label: "Receita líquida", color: "var(--info)", value: latest ? formatCurrency(latest.net) : undefined },
           { label: "Repasses", color: "var(--warning)", dashed: true },
         ]}
       />
-      <ResponsiveContainer width="100%" height={244}>
-        <AreaChart data={data} margin={{ top: 4, right: 6, bottom: 0, left: 0 }}>
+      <ResponsiveContainer width="100%" height={252}>
+        <AreaChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="grossArea" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.14} />
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.2} />
+              <stop offset="70%" stopColor="var(--accent)" stopOpacity={0.02} />
               <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
             </linearGradient>
+            <linearGradient id="netArea" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--info)" stopOpacity={0.1} />
+              <stop offset="100%" stopColor="var(--info)" stopOpacity={0} />
+            </linearGradient>
           </defs>
-          <CartesianGrid stroke={GRID} strokeDasharray="2 4" vertical={false} />
+
+          <CartesianGrid stroke={GRID} strokeDasharray="2 5" vertical={false} />
           <XAxis {...xAxisProps} />
           <YAxis {...yAxisProps} />
-          <Tooltip content={<ChartTooltip />} />
+          <Tooltip
+            content={<ChartTooltip />}
+            cursor={{ stroke: "var(--border-strong)", strokeWidth: 1, strokeDasharray: "3 3" }}
+          />
+
           <Area
             type="monotone"
             dataKey="gross"
             name="Comissão bruta"
             stroke="var(--accent)"
             fill="url(#grossArea)"
-            strokeWidth={1.75}
+            strokeWidth={2}
+            strokeLinecap="round"
             dot={false}
-            activeDot={{ r: 3, strokeWidth: 0 }}
+            activeDot={{ r: 3.5, strokeWidth: 2, stroke: "var(--surface)" }}
+            {...ANIMATION}
           />
           <Area
             type="monotone"
             dataKey="net"
             name="Receita líquida"
             stroke="var(--info)"
-            fill="transparent"
-            strokeWidth={1.75}
+            fill="url(#netArea)"
+            strokeWidth={2}
+            strokeLinecap="round"
             dot={false}
-            activeDot={{ r: 3, strokeWidth: 0 }}
+            activeDot={{ r: 3.5, strokeWidth: 2, stroke: "var(--surface)" }}
+            {...ANIMATION}
           />
           <Area
             type="monotone"
@@ -166,9 +191,10 @@ export function MonthlyEvolutionChart({ series }: { series: MonthlySeriesRow[] }
             stroke="var(--warning)"
             fill="transparent"
             strokeWidth={1.5}
-            strokeDasharray="3 3"
+            strokeDasharray="4 4"
             dot={false}
-            activeDot={{ r: 3, strokeWidth: 0 }}
+            activeDot={{ r: 3, strokeWidth: 2, stroke: "var(--surface)" }}
+            {...ANIMATION}
           />
         </AreaChart>
       </ResponsiveContainer>
@@ -178,23 +204,39 @@ export function MonthlyEvolutionChart({ series }: { series: MonthlySeriesRow[] }
 
 export function SalesVsRentalsChart({ series }: { series: MonthlySeriesRow[] }) {
   const data = toPoints(series);
+  const totalSales = data.reduce((sum, point) => sum + point.salesGross, 0);
+  const totalRentals = data.reduce((sum, point) => sum + point.rentalGross, 0);
 
   return (
     <div>
       <ChartLegend
         items={[
-          { label: "Vendas", color: "var(--accent)" },
-          { label: "Locações", color: "var(--info)" },
+          { label: "Vendas", color: "var(--accent)", value: formatCurrency(totalSales) },
+          { label: "Locações", color: "var(--info)", value: formatCurrency(totalRentals) },
         ]}
       />
-      <ResponsiveContainer width="100%" height={224}>
-        <BarChart data={data} margin={{ top: 4, right: 6, bottom: 0, left: 0 }} barGap={2}>
-          <CartesianGrid stroke={GRID} strokeDasharray="2 4" vertical={false} />
+      <ResponsiveContainer width="100%" height={228}>
+        <BarChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: 0 }} barGap={3}>
+          <CartesianGrid stroke={GRID} strokeDasharray="2 5" vertical={false} />
           <XAxis {...xAxisProps} />
           <YAxis {...yAxisProps} />
-          <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--surface-muted)" }} />
-          <Bar dataKey="salesGross" name="Vendas" fill="var(--accent)" radius={[3, 3, 0, 0]} maxBarSize={18} />
-          <Bar dataKey="rentalGross" name="Locações" fill="var(--info)" radius={[3, 3, 0, 0]} maxBarSize={18} />
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--surface-muted)", radius: 4 }} />
+          <Bar
+            dataKey="salesGross"
+            name="Vendas"
+            fill="var(--accent)"
+            radius={[4, 4, 2, 2]}
+            maxBarSize={16}
+            {...ANIMATION}
+          />
+          <Bar
+            dataKey="rentalGross"
+            name="Locações"
+            fill="var(--info)"
+            radius={[4, 4, 2, 2]}
+            maxBarSize={16}
+            {...ANIMATION}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -203,19 +245,31 @@ export function SalesVsRentalsChart({ series }: { series: MonthlySeriesRow[] }) 
 
 export function NetRevenueChart({ series }: { series: MonthlySeriesRow[] }) {
   const data = toPoints(series);
+  const best = Math.max(...data.map((point) => point.net), 0);
 
   return (
     <div>
-      <ChartLegend items={[{ label: "Receita líquida da imobiliária", color: "var(--accent)" }]} />
-      <ResponsiveContainer width="100%" height={224}>
-        <BarChart data={data} margin={{ top: 4, right: 6, bottom: 0, left: 0 }}>
-          <CartesianGrid stroke={GRID} strokeDasharray="2 4" vertical={false} />
+      <ChartLegend
+        items={[{ label: "Melhor mês", color: "var(--accent)", value: formatCurrency(best) }]}
+      />
+      <ResponsiveContainer width="100%" height={228}>
+        <BarChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
+          <CartesianGrid stroke={GRID} strokeDasharray="2 5" vertical={false} />
           <XAxis {...xAxisProps} />
           <YAxis {...yAxisProps} />
-          <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--surface-muted)" }} />
-          <Bar dataKey="net" name="Receita líquida" radius={[3, 3, 0, 0]} maxBarSize={22}>
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--surface-muted)", radius: 4 }} />
+          <Bar dataKey="net" name="Receita líquida" radius={[4, 4, 2, 2]} maxBarSize={22} {...ANIMATION}>
             {data.map((point, index) => (
-              <Cell key={index} fill={point.net < 0 ? "var(--danger)" : "var(--accent)"} />
+              <Cell
+                key={index}
+                fill={
+                  point.net < 0
+                    ? "var(--danger)"
+                    : point.net === best && best > 0
+                      ? "var(--accent)"
+                      : "var(--accent-border)"
+                }
+              />
             ))}
           </Bar>
         </BarChart>
@@ -235,7 +289,7 @@ export function CompositionChart({
 
   if (total <= 0) {
     return (
-      <p className="py-14 text-center text-[12.5px] text-muted">
+      <p className="py-16 text-center text-[12.5px] text-muted">
         Sem comissões no período para compor o gráfico.
       </p>
     );
@@ -249,18 +303,20 @@ export function CompositionChart({
   return (
     <div>
       <div className="relative">
-        <ResponsiveContainer width="100%" height={172}>
+        <ResponsiveContainer width="100%" height={178}>
           <PieChart>
             <Pie
               data={data}
               dataKey="value"
-              innerRadius={54}
-              outerRadius={76}
-              paddingAngle={1.5}
+              innerRadius={56}
+              outerRadius={80}
+              paddingAngle={2}
+              cornerRadius={4}
               startAngle={90}
               endAngle={-270}
               stroke="var(--surface)"
               strokeWidth={2}
+              {...ANIMATION}
             >
               {data.map((slice) => (
                 <Cell key={slice.name} fill={slice.color} />
@@ -271,7 +327,7 @@ export function CompositionChart({
         </ResponsiveContainer>
 
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[10.5px] font-semibold uppercase tracking-wide text-subtle">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-subtle">
             Margem
           </span>
           <span className="metric-value-sm">
@@ -280,19 +336,19 @@ export function CompositionChart({
         </div>
       </div>
 
-      <ul className="mt-3 space-y-1.5 border-t border-border pt-3">
+      <ul className="mt-3 divide-y divide-border border-t border-border">
         {data.map((slice) => (
-          <li key={slice.name} className="flex items-center justify-between gap-3 text-[12.5px]">
-            <span className="flex items-center gap-1.5 text-muted">
+          <li key={slice.name} className="flex items-center justify-between gap-3 py-2 text-[12.5px]">
+            <span className="flex min-w-0 items-center gap-1.5 text-muted">
               <span
-                className="inline-block size-1.5 rounded-full"
+                className="size-1.5 shrink-0 rounded-full"
                 style={{ backgroundColor: slice.color }}
               />
-              {slice.name}
+              <span className="truncate">{slice.name}</span>
             </span>
             <span className="shrink-0 font-semibold tabular">
               {formatCurrency(slice.value)}
-              <span className="ml-1 font-normal text-subtle">
+              <span className="ml-1.5 font-normal text-subtle">
                 {formatPercent((slice.value / total) * 100, { maximumFractionDigits: 0 })}
               </span>
             </span>
