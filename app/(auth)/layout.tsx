@@ -1,4 +1,6 @@
-import { ShieldCheck, TrendingUp, Wallet } from "lucide-react";
+import Image from "next/image";
+import { ShieldCheck, TrendingUp } from "lucide-react";
+import { BrandWordmark } from "@/components/brand/brand-mark";
 
 /**
  * Layout de autenticação em duas colunas.
@@ -12,8 +14,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <div className="flex min-h-screen">
       <aside className="surface-hero dot-grid relative hidden w-[48%] max-w-[600px] flex-col justify-between rounded-none px-12 py-12 lg:flex">
         <div className="relative flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-[9px] bg-white/12 backdrop-blur">
-            <Wallet className="size-[17px]" />
+          <span className="flex size-8 items-center justify-center rounded-[9px] bg-white p-1 shadow-card">
+            <Image
+              src="/brand/roberta-oliveira-mark.png"
+              alt=""
+              width={24}
+              height={24}
+              className="object-contain"
+            />
           </span>
           <span className="text-[14px] font-semibold tracking-[-0.01em] text-white">
             Central Financeira
@@ -21,10 +29,15 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         <div className="relative">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-white/45">
-            Roberta Oliveira Imóveis
+          <p className="label-overline text-white/45">Bem-vindo de volta</p>
+          <BrandWordmark
+            name="Roberta Oliveira"
+            className="mt-1 block text-[42px] text-white"
+          />
+          <p className="-mt-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">
+            Imóveis
           </p>
-          <h2 className="mt-3 max-w-md text-[30px] font-semibold leading-[1.15] tracking-[-0.03em] text-white">
+          <h2 className="mt-5 max-w-md text-[26px] font-semibold leading-[1.2] tracking-[-0.025em] text-white">
             Cada centavo de comissão no lugar certo.
           </h2>
           <p className="mt-4 max-w-sm text-[13.5px] leading-relaxed text-white/60">
@@ -99,8 +112,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <main className="flex flex-1 items-center justify-center bg-background px-4 py-10 sm:px-8">
         <div className="w-full max-w-[368px] animate-enter">
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <span className="flex size-8 items-center justify-center rounded-[9px] bg-accent text-accent-foreground shadow-card">
-              <Wallet className="size-[17px]" />
+            <span className="flex size-8 items-center justify-center rounded-[9px] border border-border bg-surface p-1 shadow-card">
+              <Image
+                src="/brand/roberta-oliveira-mark.png"
+                alt=""
+                width={24}
+                height={24}
+                className="object-contain"
+              />
             </span>
             <span className="text-[14px] font-semibold tracking-[-0.01em]">Central Financeira</span>
           </div>

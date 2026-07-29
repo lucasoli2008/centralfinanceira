@@ -33,6 +33,22 @@ export function formatCurrency(value: number | string | null | undefined): strin
   return currencyFormatter.format(numeric);
 }
 
+/**
+ * Partes de um valor monetário, para renderizar com hierarquia tipográfica
+ * (símbolo e centavos menores que os reais) — ver components/finance/money.tsx.
+ */
+export function currencyParts(
+  value: number | string | null | undefined,
+): { negative: boolean; integer: string; cents: string } | null {
+  const numeric = toNumber(value);
+  if (numeric === null) return null;
+
+  const formatted = decimalFormatter.format(Math.abs(numeric));
+  const [integer, cents = "00"] = formatted.split(",");
+
+  return { negative: numeric < 0, integer, cents };
+}
+
 /** R$ 500 mil — usado apenas em eixos de gráficos. */
 export function formatCompactCurrency(value: number | string | null | undefined): string {
   const numeric = toNumber(value);

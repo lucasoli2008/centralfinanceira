@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { KeyRound } from "lucide-react";
 import { LoginForm } from "@/features/auth/login-form";
 
 export const metadata: Metadata = { title: "Entrar" };
@@ -17,9 +18,13 @@ export default async function LoginPage({
   const { redirecionar, erro } = await searchParams;
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-[19px] font-semibold tracking-[-0.02em]">Entrar na conta</h1>
+    <div className="surface-raised px-6 py-7 sm:px-8 sm:py-8">
+      <span className="flex size-10 items-center justify-center rounded-full bg-accent-soft text-accent">
+        <KeyRound className="size-[18px]" />
+      </span>
+
+      <div className="mb-6 mt-4">
+        <h1 className="text-[20px] font-semibold tracking-[-0.02em]">Entrar na conta</h1>
         <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
           Use o e-mail e a senha cadastrados pelo proprietário da imobiliária.
         </p>

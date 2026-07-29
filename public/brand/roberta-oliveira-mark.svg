@@ -1,0 +1,35 @@
+<svg width="512" height="440" viewBox="0 0 512 440" xmlns="http://www.w3.org/2000/svg">
+  <!-- Roberta Oliveira Imóveis — marca (telhado), recriada a partir da logo
+       enviada pelo cliente: telhado cinza mais largo ao fundo, telhado
+       vermelho mais alto sobreposto à direita, com um recorte de janela. -->
+
+  <!-- Chaminé do telhado cinza -->
+  <rect x="96" y="118" width="34" height="86" rx="3" fill="#8a8d92"/>
+
+  <!-- Telhado cinza (fundo, mais largo e mais baixo) -->
+  <path
+    d="M18 268
+       L246 84
+       L474 268
+       L474 292
+       L246 130
+       L18 292
+       Z"
+    fill="#9a9da3"
+  />
+
+  <!-- Telhado vermelho (frente, mais estreito e mais alto), com recorte de janela -->
+  <path
+    d="M180 300
+       L338 118
+       L462 300
+       L462 328
+       L338 176
+       L204 328
+       Z"
+    fill="#b3242c"
+  />
+
+  <!-- Janela / recorte na base do telhado vermelho -->
+  <rect x="318" y="252" width="40" height="40" rx="4" fill="#fbfbfa"/>
+</svg>

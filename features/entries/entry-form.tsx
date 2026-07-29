@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertTriangle, Info, Loader2, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Info, Loader2, Plus, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { FormField, Input, NativeSelect, Textarea } from "@/components/ui/field";
+import { Callout, Checkbox, FormField, Input, NativeSelect, Textarea } from "@/components/ui/field";
+import { Segmented } from "@/components/ui/segmented";
+import { StepSection } from "@/components/ui/step";
 import { MoneyInput, PercentInput } from "@/components/finance/money-input";
 import { SummaryPanel } from "@/components/finance/summary-panel";
+import { Money } from "@/components/finance/money";
 import {
   Dialog,
   DialogContent,
@@ -21,8 +24,9 @@ import {
 } from "@/components/ui/dialog";
 import { calculateEntryTotals, calculateSplitAmount } from "@/lib/finance/engine";
 import { entrySchema, type EntryFormValues } from "@/lib/validation/entry";
-import { formatCurrency, formatPercent } from "@/lib/formatting/number";
+import { formatPercent } from "@/lib/formatting/number";
 import { baseAmountLabel } from "@/lib/formatting/labels";
+import { cn, initials } from "@/lib/utils";
 import type { EntryType } from "@/lib/finance/types";
 import type { BrokerRow, OrganizationSettingsRow } from "@/types/database";
 import { saveEntry } from "./actions";
@@ -51,6 +55,16 @@ function defaultCommission(entryType: EntryType, settings: OrganizationSettingsR
         fixed: settings.default_rental_commission_fixed_amount,
       };
 }
+
+const PROPERTY_TYPE_OPTIONS = [
+  { value: "residential" as const, label: "Residencial" },
+  { value: "commercial" as const, label: "Comercial" },
+];
+
+const COMMISSION_MODE_OPTIONS = [
+  { value: "percentage" as const, label: "Percentual" },
+  { value: "fixed" as const, label: "Valor fixo" },
+];
 
 export function EntryForm({
   entryType,
@@ -236,22 +250,25 @@ export function EntryForm({
   }
 
   const errors = formState.errors;
+  const usedBrokerIds = new Set((values.splits ?? []).map((split) => split.brokerId));
 
   return (
-    <form onSubmit={submitAndClose} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-      <div className="space-y-6">
+    <form onSubmit={submitAndClose} className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="space-y-4">
         {monthClosed ? (
-          <p className="flex items-start gap-2 rounded-card border border-warning bg-warning-soft px-4 py-3 text-[13px] text-warning">
+          <Callout tone="warning" className="rounded-card border border-warning/25">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             Este mês financeiro está fechado. Reabra o mês antes de realizar alterações.
-          </p>
+          </Callout>
         ) : null}
 
-        {/* Seção 1 — Informações ------------------------------------------ */}
-        <section className="surface-card p-5">
-          <h2 className="section-title">Informações</h2>
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {/* Etapa 1 — Informações -------------------------------------------- */}
+        <StepSection
+          index={1}
+          title="Informações da operação"
+          description="Data, descrição e valor-base do lançamento."
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               label="Data da entrada"
               htmlFor="entryDate"
@@ -262,15 +279,20 @@ export function EntryForm({
               <Input id="entryDate" type="date" {...register("entryDate")} />
             </FormField>
 
-            <FormField
-              label="Tipo do imóvel"
-              htmlFor="propertyType"
-              error={errors.propertyType?.message}
-            >
-              <NativeSelect id="propertyType" {...register("propertyType")}>
-                <option value="residential">Residencial</option>
-                <option value="commercial">Comercial</option>
-              </NativeSelect>
+            <FormField label="Tipo do imóvel" htmlFor="propertyType">
+              <Controller
+                control={control}
+                name="propertyType"
+                render={({ field }) => (
+                  <Segmented
+                    ariaLabel="Tipo do imóvel"
+                    options={PROPERTY_TYPE_OPTIONS}
+                    value={field.value}
+                    onChange={field.onChange}
+                    className="w-full"
+                  />
+                )}
+              />
             </FormField>
 
             <FormField
@@ -327,18 +349,29 @@ export function EntryForm({
               <Textarea id="notes" rows={3} {...register("notes")} />
             </FormField>
           </div>
-        </section>
+        </StepSection>
 
-        {/* Seção 2 — Comissão --------------------------------------------- */}
-        <section className="surface-card p-5">
-          <h2 className="section-title">Comissão da imobiliária</h2>
-
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {/* Etapa 2 — Comissão ------------------------------------------------ */}
+        <StepSection
+          index={2}
+          title="Comissão da imobiliária"
+          description="Como a comissão bruta desta operação é calculada."
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
             <FormField label="Forma de cálculo" htmlFor="commissionMode">
-              <NativeSelect id="commissionMode" {...register("commissionMode")}>
-                <option value="percentage">Percentual</option>
-                <option value="fixed">Valor fixo</option>
-              </NativeSelect>
+              <Controller
+                control={control}
+                name="commissionMode"
+                render={({ field }) => (
+                  <Segmented
+                    ariaLabel="Forma de cálculo da comissão"
+                    options={COMMISSION_MODE_OPTIONS}
+                    value={field.value}
+                    onChange={field.onChange}
+                    className="w-full"
+                  />
+                )}
+              />
             </FormField>
 
             {values.commissionMode === "percentage" ? (
@@ -387,56 +420,90 @@ export function EntryForm({
           </div>
 
           {differsFromDefault ? (
-            <p className="mt-3 flex items-start gap-2 text-xs text-muted">
+            <p className="mt-3 flex items-start gap-1.5 text-[12px] text-muted">
               <Info className="mt-0.5 size-3.5 shrink-0" />
               Esta comissão é diferente do padrão atual de {formatPercent(commissionDefaults.rate)}.
             </p>
           ) : null}
 
-          <p className="mt-3 text-[13px] text-muted">
-            Comissão bruta:{" "}
-            <span className="font-semibold tabular text-foreground">
-              {formatCurrency(totals.grossCommission)}
-            </span>
-          </p>
-        </section>
+          <div className="mt-4 flex items-center justify-between rounded-control bg-surface-sunken px-3.5 py-2.5">
+            <span className="text-[12.5px] text-muted">Comissão bruta</span>
+            <Money value={totals.grossCommission} size="lg" />
+          </div>
+        </StepSection>
 
-        {/* Seção 3 — Corretores ------------------------------------------- */}
-        <section className="surface-card p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 className="section-title">Corretores</h2>
-              <p className="mt-0.5 text-xs text-subtle">
-                Adicione quantos corretores participaram da operação.
-              </p>
-            </div>
+        {/* Etapa 3 — Corretores ----------------------------------------------- */}
+        <StepSection
+          index={3}
+          title="Corretores"
+          description="Quem participou da operação e quanto cada um recebe."
+          action={
             <Button type="button" variant="secondary" size="sm" onClick={addBroker}>
               <Plus />
-              Adicionar corretor
+              Adicionar
             </Button>
-          </div>
-
+          }
+        >
           {fields.length === 0 ? (
-            <p className="mt-4 rounded-control bg-surface-muted px-4 py-6 text-center text-[13px] text-muted">
-              Nenhum corretor adicionado. Toda a comissão ficará com a imobiliária.
-            </p>
+            <div className="flex flex-col items-center gap-2 rounded-control border border-dashed border-border-strong bg-surface-sunken px-4 py-7 text-center">
+              <UserRound className="size-5 text-subtle" />
+              <p className="text-[12.5px] text-muted">
+                Nenhum corretor adicionado. Toda a comissão ficará com a imobiliária.
+              </p>
+            </div>
           ) : (
-            <ul className="mt-4 space-y-3">
+            <ul className="space-y-2.5">
               {fields.map((field, index) => {
                 const split = values.splits?.[index];
+                const broker = selectableBrokers.find((item) => item.id === split?.brokerId);
                 const payout = calculateSplitAmount(totals.grossCommission, {
                   mode: split?.splitMode ?? "percentage",
                   rate: split?.splitRate,
                   fixedAmount: split?.splitFixedAmount,
                 });
                 const splitErrors = errors.splits?.[index];
+                const share =
+                  totals.grossCommission > 0 ? (payout / totals.grossCommission) * 100 : 0;
 
                 return (
                   <li
                     key={field.id}
-                    className="rounded-control border border-border p-4"
+                    className="overflow-hidden rounded-control border border-border"
                   >
-                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+                    <div className="flex items-center justify-between gap-2 bg-surface-sunken px-3.5 py-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className={cn(
+                            "flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
+                            broker
+                              ? "bg-accent-soft text-accent"
+                              : "bg-surface-muted text-subtle",
+                          )}
+                          aria-hidden="true"
+                        >
+                          {broker ? initials(broker.full_name) : "?"}
+                        </span>
+                        <span className="truncate text-[12.5px] font-medium">
+                          {broker?.full_name ?? "Corretor não selecionado"}
+                        </span>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2.5">
+                        <span className="text-[11.5px] tabular text-subtle">
+                          {formatPercent(share, { maximumFractionDigits: 0 })} da comissão
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => remove(index)}
+                          aria-label="Remover corretor do lançamento"
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 p-3.5 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]">
                       <FormField
                         label="Corretor"
                         htmlFor={`splits.${index}.brokerId`}
@@ -449,23 +516,33 @@ export function EntryForm({
                           onChange={(event) => onBrokerChange(index, event.target.value)}
                         >
                           <option value="">Selecione…</option>
-                          {selectableBrokers.map((broker) => (
-                            <option key={broker.id} value={broker.id}>
-                              {broker.full_name}
-                              {broker.is_active ? "" : " (inativo)"}
+                          {selectableBrokers.map((option) => (
+                            <option
+                              key={option.id}
+                              value={option.id}
+                              disabled={usedBrokerIds.has(option.id) && option.id !== split?.brokerId}
+                            >
+                              {option.full_name}
+                              {option.is_active ? "" : " (inativo)"}
                             </option>
                           ))}
                         </NativeSelect>
                       </FormField>
 
                       <FormField label="Forma do repasse" htmlFor={`splits.${index}.splitMode`}>
-                        <NativeSelect
-                          id={`splits.${index}.splitMode`}
-                          {...register(`splits.${index}.splitMode` as const)}
-                        >
-                          <option value="percentage">Percentual</option>
-                          <option value="fixed">Valor fixo</option>
-                        </NativeSelect>
+                        <Controller
+                          control={control}
+                          name={`splits.${index}.splitMode` as const}
+                          render={({ field: modeField }) => (
+                            <Segmented
+                              ariaLabel="Forma do repasse"
+                              options={COMMISSION_MODE_OPTIONS}
+                              value={modeField.value}
+                              onChange={modeField.onChange}
+                              className="w-full"
+                            />
+                          )}
+                        />
                       </FormField>
 
                       {split?.splitMode === "fixed" ? (
@@ -509,35 +586,21 @@ export function EntryForm({
                           />
                         </FormField>
                       )}
-
-                      <div className="flex items-end justify-end pb-0.5">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => remove(index)}
-                          aria-label="Remover corretor do lançamento"
-                        >
-                          <Trash2 />
-                        </Button>
-                      </div>
                     </div>
 
-                    <p className="mt-2 text-xs text-muted">
-                      Repasse calculado:{" "}
-                      <span className="font-semibold tabular text-foreground">
-                        {formatCurrency(payout)}
-                      </span>
-                    </p>
+                    <div className="flex items-center justify-between border-t border-border px-3.5 py-2">
+                      <span className="text-[11.5px] text-subtle">Repasse calculado</span>
+                      <Money value={payout} size="md" />
+                    </div>
                   </li>
                 );
               })}
             </ul>
           )}
-        </section>
+        </StepSection>
 
         {/* Ações ----------------------------------------------------------- */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           <Button type="submit" disabled={pending}>
             {pending ? <Loader2 className="size-4 animate-spin" /> : null}
             {isEditing ? "Salvar alterações" : "Salvar lançamento"}
@@ -571,18 +634,18 @@ export function EntryForm({
           <DialogHeader>
             <DialogTitle>Confirmar exceção financeira</DialogTitle>
             <DialogDescription>
-              A soma dos repasses aos corretores ({formatCurrency(totals.totalBrokerPayout)}) é
-              maior que a comissão bruta ({formatCurrency(totals.grossCommission)}). Isso fará com
-              que a receita líquida da imobiliária fique negativa (
-              {formatCurrency(totals.netCompanyRevenue)}).
+              A soma dos repasses aos corretores (<Money value={totals.totalBrokerPayout} size="inherit" />)
+              é maior que a comissão bruta (<Money value={totals.grossCommission} size="inherit" />).
+              Isso fará com que a receita líquida da imobiliária fique negativa (
+              <Money value={totals.netCompanyRevenue} size="inherit" />
+              ).
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
             <label className="flex items-start gap-2 text-[13px]">
-              <input
-                type="checkbox"
-                className="mt-0.5 size-4 rounded border-border-strong"
+              <Checkbox
+                className="mt-0.5"
                 checked={Boolean(values.exceptionConfirmed)}
                 onChange={(event) =>
                   setValue("exceptionConfirmed", event.target.checked, { shouldValidate: true })

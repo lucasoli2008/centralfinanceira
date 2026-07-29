@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { BrandMark } from "@/components/brand/brand-mark";
 import { usePathname } from "next/navigation";
 import {
   Building2,
@@ -18,7 +18,6 @@ import {
   Trash2,
   Upload,
   Users,
-  Wallet,
   X,
 } from "lucide-react";
 import {
@@ -80,20 +79,7 @@ export interface ShellIdentity {
 function Brand({ organizationName, logoUrl }: Pick<ShellIdentity, "organizationName" | "logoUrl">) {
   return (
     <div className="flex items-center gap-2.5 px-4 py-4">
-      {logoUrl ? (
-        <Image
-          src={logoUrl}
-          alt=""
-          width={30}
-          height={30}
-          className="size-[30px] shrink-0 rounded-[7px] object-contain"
-          unoptimized
-        />
-      ) : (
-        <span className="flex size-[30px] shrink-0 items-center justify-center rounded-[7px] bg-accent text-accent-foreground shadow-card">
-          <Wallet className="size-[15px]" />
-        </span>
-      )}
+      <BrandMark logoUrl={logoUrl} size={30} />
       <div className="min-w-0">
         <p className="truncate text-[13px] font-semibold leading-tight tracking-[-0.01em]">
           {organizationName}
