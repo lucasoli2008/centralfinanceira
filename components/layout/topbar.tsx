@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/menu";
 import { CommandPalette } from "@/components/ui/command-palette";
+import { AssistantPanel } from "@/components/assistant/assistant-panel";
 import { MobileNav, type ShellIdentity } from "./sidebar";
 
 /** Rótulo da seção atual, para o usuário sempre saber onde está. */
@@ -47,6 +48,7 @@ export function Topbar(identity: ShellIdentity) {
         </ol>
       </nav>
 
+      <AssistantPanel />
       <CommandPalette />
 
       <DropdownMenu>

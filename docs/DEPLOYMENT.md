@@ -9,11 +9,16 @@ NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 SUPABASE_SERVICE_ROLE_KEY=<service role key>   # só no servidor
 NEXT_PUBLIC_APP_URL=http://localhost:3010      # em produção, a URL pública
+OPENAI_API_KEY=<chave da API da OpenAI>        # só no servidor — assistente de IA
 ```
 
-As chaves ficam em **Project Settings → API** no painel do Supabase.
+As chaves do Supabase ficam em **Project Settings → API** no painel do Supabase.
 `SUPABASE_SERVICE_ROLE_KEY` é usada apenas por `lib/supabase/admin.ts` (marcado `server-only`),
 para convidar administradores e no bootstrap. **Nunca** vai para o navegador nem para o Git.
+
+`OPENAI_API_KEY` é lida apenas em `lib/ai/assistant.ts` (também `server-only`), para o
+assistente de IA (ver `docs/AI_ASSISTANT.md`). Sem essa chave, o restante do sistema funciona
+normalmente — só o botão do assistente passa a responder com erro.
 
 ## 2. Banco de dados
 
@@ -87,7 +92,8 @@ npm run build        # build de produção
 1. Importe o repositório na Vercel (framework detectado: Next.js).
 2. Configure as variáveis de ambiente em **Settings → Environment Variables**:
    `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL` (URL final do projeto).
+   `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL` (URL final do projeto),
+   `OPENAI_API_KEY` (assistente de IA).
 3. No Supabase, em **Authentication → URL Configuration**, defina:
    - **Site URL**: `https://<seu-dominio>`
    - **Redirect URLs**: `https://<seu-dominio>/auth/callback`
