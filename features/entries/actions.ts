@@ -6,10 +6,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppContext } from "@/lib/auth/session";
 import { entrySchema, type EntryFormValues } from "@/lib/validation/entry";
 import { logServerError, toUserMessage } from "@/lib/errors";
+import type { ActionResult } from "@/lib/action-result";
 
-export type ActionResult<T = void> =
-  | ({ status: "ok" } & (T extends void ? object : { data: T }))
-  | { status: "error"; message: string; fieldErrors?: Record<string, string> };
+export type { ActionResult } from "@/lib/action-result";
 
 function revalidateEntryPaths() {
   revalidatePath("/dashboard");

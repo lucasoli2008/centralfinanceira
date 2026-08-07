@@ -9,6 +9,7 @@ import {
   CalendarRange,
   ChevronsUpDown,
   FileBarChart,
+  HardHat,
   History,
   LayoutDashboard,
   KeyRound,
@@ -48,6 +49,10 @@ const NAV_GROUPS: { label: string | null; items: NavItem[] }[] = [
       { href: "/locacoes", label: "Locações", icon: KeyRound },
       { href: "/corretores", label: "Corretores", icon: Users },
     ],
+  },
+  {
+    label: "Obras",
+    items: [{ href: "/obras", label: "Obras", icon: HardHat }],
   },
   {
     label: "Análise",

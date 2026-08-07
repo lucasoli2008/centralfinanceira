@@ -10,16 +10,29 @@ import {
   View,
   renderToBuffer,
 } from "@react-pdf/renderer";
-import { formatCurrency, formatInteger, formatPercent } from "@/lib/formatting/number";
+import { formatCurrency, formatDecimal, formatInteger, formatPercent } from "@/lib/formatting/number";
 import { formatDate, formatDateTime, formatMonthYear, monthName } from "@/lib/formatting/date";
-import { ENTRY_TYPE_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/formatting/labels";
+import {
+  ENTRY_TYPE_LABELS,
+  PROPERTY_TYPE_LABELS,
+  WORK_ATTACHMENT_CATEGORY_LABELS,
+  WORK_CATEGORY_LABELS,
+  WORK_ENTRY_UNIT_LABELS,
+  WORK_PRIORITY_LABELS,
+  WORK_STATUS_LABELS,
+} from "@/lib/formatting/labels";
 import type {
   BrokerRankingRow,
   BrokerStatementRow,
   EntryTotalsRow,
   MonthlySeriesRow,
   SummaryRow,
+  WorkAttachmentCategory,
+  WorkEntryRow,
+  WorkEntryType,
+  WorkRow,
 } from "@/types/database";
+import type { WorkTotals } from "@/lib/works/types";
 
 /**
  * Relatórios em PDF gerados no servidor (nunca captura de tela).
@@ -659,8 +672,303 @@ function FilteredReport({ data }: { data: FilteredReportData }) {
 }
 
 // -----------------------------------------------------------------------------
+// Obras
+// -----------------------------------------------------------------------------
+
+const WORK_ENTRY_COLUMNS: { key: string; label: string; width: string; numeric?: boolean }[] = [
+  { key: "date", label: "Data", width: "12%" },
+  { key: "description", label: "Descrição", width: "28%" },
+  { key: "supplier", label: "Fornecedor", width: "20%" },
+  { key: "quantity", label: "Qtd.", width: "14%", numeric: true },
+  { key: "unitPrice", label: "Valor unit.", width: "13%", numeric: true },
+  { key: "total", label: "Total", width: "13%", numeric: true },
+];
+
+function WorkEntriesTypeTable({ entries, type, title }: { entries: WorkEntryRow[]; type: WorkEntryType; title: string }) {
+  const rows = entries.filter((entry) => entry.entry_type === type);
+  const total = rows.reduce((sum, entry) => sum + Number(entry.total_amount), 0);
+
+  return (
+    <>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {rows.length === 0 ? (
+        <Text style={styles.emptyMessage}>Nenhum item registrado.</Text>
+      ) : (
+        <View style={styles.table}>
+          <View style={styles.tableHeader} fixed>
+            {WORK_ENTRY_COLUMNS.map((column) => (
+              <Text
+                key={column.key}
+                style={[styles.th, { width: column.width }, column.numeric ? styles.right : {}]}
+              >
+                {column.label}
+              </Text>
+            ))}
+          </View>
+
+          {rows.map((entry) => (
+            <View key={entry.id} style={styles.tableRow} wrap={false}>
+              <Text style={[styles.td, { width: "12%" }]}>{formatDate(entry.entry_date)}</Text>
+              <Text style={[styles.td, { width: "28%" }]}>{entry.description}</Text>
+              <Text style={[styles.td, { width: "20%" }]}>{entry.supplier_name ?? "—"}</Text>
+              <Text style={[styles.td, styles.right, { width: "14%" }]}>
+                {formatDecimal(entry.quantity)} {WORK_ENTRY_UNIT_LABELS[entry.unit]}
+              </Text>
+              <Text style={[styles.td, styles.right, { width: "13%" }]}>
+                {formatCurrency(entry.unit_price)}
+              </Text>
+              <Text style={[styles.td, styles.right, styles.bold, { width: "13%" }]}>
+                {formatCurrency(entry.total_amount)}
+              </Text>
+            </View>
+          ))}
+
+          <View style={styles.tableFooter}>
+            <Text style={[styles.td, styles.bold, { width: "60%" }]}>Total</Text>
+            <Text style={[styles.td, { width: "14%" }]} />
+            <Text style={[styles.td, styles.right, styles.bold, { width: "13%" }]} />
+            <Text style={[styles.td, styles.right, styles.bold, { width: "13%" }]}>
+              {formatCurrency(total)}
+            </Text>
+          </View>
+        </View>
+      )}
+    </>
+  );
+}
+
+export interface WorkReportPhoto {
+  url: string;
+  category: WorkAttachmentCategory;
+  description: string | null;
+}
+
+export interface WorkReportDocument {
+  fileName: string;
+  category: WorkAttachmentCategory;
+  createdAt: string;
+}
+
+export interface WorkReportData {
+  branding: ReportBranding;
+  work: WorkRow;
+  totals: WorkTotals;
+  entries: WorkEntryRow[];
+  photos: WorkReportPhoto[];
+  documents: WorkReportDocument[];
+}
+
+const WORK_PHOTO_GROUPS: { category: WorkAttachmentCategory; label: string }[] = [
+  { category: "foto_antes", label: "Antes" },
+  { category: "foto_durante", label: "Durante" },
+  { category: "foto_depois", label: "Depois" },
+];
+
+function WorkPhotosSection({ photos }: { photos: WorkReportPhoto[] }) {
+  if (photos.length === 0) {
+    return <Text style={styles.emptyMessage}>Nenhuma foto registrada.</Text>;
+  }
+
+  return (
+    <>
+      {WORK_PHOTO_GROUPS.map((group) => {
+        const groupPhotos = photos.filter((photo) => photo.category === group.category);
+        if (groupPhotos.length === 0) return null;
+
+        return (
+          <View key={group.category} style={{ marginBottom: 8 }} wrap={false}>
+            <Text style={[styles.td, styles.bold, { marginBottom: 4 }]}>{group.label}</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {groupPhotos.map((photo) => (
+                // eslint-disable-next-line jsx-a11y/alt-text
+                <Image
+                  key={photo.url}
+                  src={photo.url}
+                  style={{ width: 110, height: 90, objectFit: "cover", borderRadius: 4 }}
+                />
+              ))}
+            </View>
+          </View>
+        );
+      })}
+    </>
+  );
+}
+
+function WorkDocumentsSection({ documents }: { documents: WorkReportDocument[] }) {
+  if (documents.length === 0) {
+    return <Text style={styles.emptyMessage}>Nenhum documento anexado.</Text>;
+  }
+
+  return (
+    <View style={styles.table}>
+      <View style={styles.tableHeader}>
+        <Text style={[styles.th, { width: "50%" }]}>Nome do arquivo</Text>
+        <Text style={[styles.th, { width: "30%" }]}>Categoria</Text>
+        <Text style={[styles.th, { width: "20%" }]}>Enviado em</Text>
+      </View>
+      {documents.map((document) => (
+        <View key={document.fileName + document.createdAt} style={styles.tableRow} wrap={false}>
+          <Text style={[styles.td, { width: "50%" }]}>{document.fileName}</Text>
+          <Text style={[styles.td, { width: "30%" }]}>
+            {WORK_ATTACHMENT_CATEGORY_LABELS[document.category]}
+          </Text>
+          <Text style={[styles.td, { width: "20%" }]}>{formatDate(document.createdAt)}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function WorkReport({ data }: { data: WorkReportData }) {
+  const { branding, work, totals } = data;
+
+  return (
+    <Document title={`Relatório da obra ${work.code}`}>
+      <Page size="A4" style={styles.page}>
+        <Header branding={branding} title={work.title} subtitle={`${work.code} · ${work.property_label}`} />
+
+        <Text style={styles.sectionTitle}>Identificação</Text>
+        <Text style={styles.filterLine}>Endereço: {work.address}</Text>
+        <Text style={styles.filterLine}>Proprietário: {work.owner_label}</Text>
+        <Text style={styles.filterLine}>Responsável interno: {work.responsible_name}</Text>
+        <Text style={styles.filterLine}>Categoria: {WORK_CATEGORY_LABELS[work.category]}</Text>
+        <Text style={styles.filterLine}>Prioridade: {WORK_PRIORITY_LABELS[work.priority]}</Text>
+        <Text style={styles.filterLine}>Status: {WORK_STATUS_LABELS[work.status]}</Text>
+        <Text style={styles.filterLine}>
+          Início: {work.started_at ? formatDate(work.started_at) : "—"} · Previsão:{" "}
+          {work.expected_at ? formatDate(work.expected_at) : "—"} · Conclusão:{" "}
+          {work.completed_at ? formatDate(work.completed_at) : "—"}
+        </Text>
+
+        <Text style={styles.sectionTitle}>Descrição</Text>
+        <Text style={styles.td}>{work.description}</Text>
+
+        <WorkEntriesTypeTable entries={data.entries} type="servico" title="Serviços" />
+        <WorkEntriesTypeTable entries={data.entries} type="material" title="Materiais" />
+        <WorkEntriesTypeTable entries={data.entries} type="outro_custo" title="Outros custos" />
+
+        <Text style={styles.sectionTitle}>Resumo financeiro</Text>
+        <View style={styles.cardsRow}>
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Materiais</Text>
+            <Text style={styles.cardValue}>{formatCurrency(totals.materialsTotal)}</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Serviços</Text>
+            <Text style={styles.cardValue}>{formatCurrency(totals.servicesTotal)}</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Outros custos</Text>
+            <Text style={styles.cardValue}>{formatCurrency(totals.otherTotal)}</Text>
+          </View>
+          <View style={[styles.card, { borderColor: branding.accentColor }]}>
+            <Text style={styles.cardLabel}>Total geral</Text>
+            <Text style={[styles.cardValue, { color: branding.accentColor }]}>
+              {formatCurrency(totals.grandTotal)}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Fotos</Text>
+        <WorkPhotosSection photos={data.photos} />
+
+        <Text style={styles.sectionTitle}>Documentos</Text>
+        <WorkDocumentsSection documents={data.documents} />
+
+        <Footer branding={branding} />
+      </Page>
+    </Document>
+  );
+}
+
+export interface WorksListReportRow {
+  code: string;
+  title: string;
+  propertyLabel: string;
+  status: WorkRow["status"];
+  startedAt: string | null;
+  totalAmount: number;
+}
+
+export interface WorksListReportData {
+  branding: ReportBranding;
+  periodLabel: string;
+  filters: string[];
+  rows: WorksListReportRow[];
+}
+
+function WorksListReport({ data }: { data: WorksListReportData }) {
+  const { branding, rows } = data;
+  const grandTotal = rows.reduce((sum, row) => sum + row.totalAmount, 0);
+
+  return (
+    <Document title="Relatório geral de obras">
+      <Page size="A4" style={styles.page} orientation="landscape">
+        <Header branding={branding} title="Relatório de obras" subtitle={data.periodLabel} />
+
+        <Text style={styles.sectionTitle}>Filtros aplicados</Text>
+        {data.filters.map((filter) => (
+          <Text key={filter} style={styles.filterLine}>
+            • {filter}
+          </Text>
+        ))}
+
+        <Text style={styles.sectionTitle}>Obras ({formatInteger(rows.length)})</Text>
+        {rows.length === 0 ? (
+          <Text style={styles.emptyMessage}>Nenhuma obra encontrada para os filtros selecionados.</Text>
+        ) : (
+          <View style={styles.table}>
+            <View style={styles.tableHeader} fixed>
+              <Text style={[styles.th, { width: "12%" }]}>Código</Text>
+              <Text style={[styles.th, { width: "28%" }]}>Título</Text>
+              <Text style={[styles.th, { width: "24%" }]}>Imóvel</Text>
+              <Text style={[styles.th, { width: "14%" }]}>Status</Text>
+              <Text style={[styles.th, { width: "10%" }]}>Início</Text>
+              <Text style={[styles.th, styles.right, { width: "12%" }]}>Gasto total</Text>
+            </View>
+
+            {rows.map((row) => (
+              <View key={row.code} style={styles.tableRow} wrap={false}>
+                <Text style={[styles.td, { width: "12%" }]}>{row.code}</Text>
+                <Text style={[styles.td, { width: "28%" }]}>{row.title}</Text>
+                <Text style={[styles.td, { width: "24%" }]}>{row.propertyLabel}</Text>
+                <Text style={[styles.td, { width: "14%" }]}>{WORK_STATUS_LABELS[row.status]}</Text>
+                <Text style={[styles.td, { width: "10%" }]}>
+                  {row.startedAt ? formatDate(row.startedAt) : "—"}
+                </Text>
+                <Text style={[styles.td, styles.right, styles.bold, { width: "12%" }]}>
+                  {formatCurrency(row.totalAmount)}
+                </Text>
+              </View>
+            ))}
+
+            <View style={styles.tableFooter}>
+              <Text style={[styles.td, styles.bold, { width: "88%" }]}>Total geral</Text>
+              <Text style={[styles.td, styles.right, styles.bold, { width: "12%" }]}>
+                {formatCurrency(grandTotal)}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        <Footer branding={branding} />
+      </Page>
+    </Document>
+  );
+}
+
+// -----------------------------------------------------------------------------
 // Renderização
 // -----------------------------------------------------------------------------
+
+export async function renderWorkReport(data: WorkReportData): Promise<Buffer> {
+  return renderToBuffer(<WorkReport data={data} />);
+}
+
+export async function renderWorksListReport(data: WorksListReportData): Promise<Buffer> {
+  return renderToBuffer(<WorksListReport data={data} />);
+}
 
 export async function renderMonthlyReport(data: MonthlyReportData): Promise<Buffer> {
   return renderToBuffer(<MonthlyReport data={data} />);

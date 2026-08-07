@@ -31,3 +31,22 @@ contas a pagar e a receber, folha de pagamento, contabilidade, estoque e módulo
 
 O valor do produto está em ser **pequeno em escopo e profundo em execução**. Cada item acima
 transformaria a central financeira em um ERP genérico.
+
+## Módulo Obras — ampliações naturais (não implementadas)
+
+| Ideia | Por que pode fazer sentido | Por que ficou de fora |
+| --- | --- | --- |
+| Gráfico "gastos por mês" no dashboard de Obras | `recharts` já é dependência; dado já existe (`getWorkMonthlySpending`) | Deliberadamente deixado por último no plano de implementação; pode ser adicionado depois sem migração nova |
+| Cadastro estruturado de imóveis/proprietários | Evitaria digitar o mesmo imóvel em obras diferentes | Proibido em `CLAUDE.md`; Obras usa texto livre de propósito |
+| Vínculo automático entre obra e lançamento financeiro | "Quanto uma reforma custou" apareceria no financeiro principal | Explicitamente fora de escopo (seção 27 do pedido): Obras não gera postagem financeira |
+
+## Módulo Obras — fora do escopo por definição (não implementar)
+
+Registrado apenas para deixar claro que foi considerado e recusado (seção 27 do pedido original):
+
+Login/domínio separado para Obras, portal de proprietário ou prestador, aprovação/assinatura
+digital de orçamentos, chat interno, automação de WhatsApp/e-mail, contas a pagar/receber,
+postagens financeiras automáticas, conciliação bancária, módulo completo de fornecedores/
+prestadores (cadastro, avaliação, contrato), leitura automática de nota fiscal por IA/OCR, análise
+automática de fotos, previsão de custo, manutenção preventiva automática, controle de estoque/
+ferramentas, mapas/geolocalização, aplicativo separado, notificações push.

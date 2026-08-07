@@ -49,6 +49,17 @@ Resumo das permissões:
 | `monthly_closings` | membro ativo | membro ativo | membro ativo | — |
 | `entry_imports` | membro ativo | membro ativo | membro ativo | — |
 | `audit_logs` | membro ativo | — (definer) | — | — |
+| `work_code_counters` | membro ativo | membro ativo | membro ativo* | — |
+| `works` | membro ativo | membro ativo | membro ativo | — (arquivamento) |
+| `work_entries` | membro ativo | membro ativo | membro ativo | — (lógica) |
+| `work_attachments` | membro ativo | membro ativo | membro ativo | — (lógica) |
+| `work_activities` | membro ativo | — (via RPC) | — | — |
+
+\* `work_code_counters` precisa de policy e `grant` de `update`, além de `select`/`insert`: o
+`insert ... on conflict (organization_id, year) do update` de `app_generate_work_code` exige
+privilégio de update mesmo quando o conflito é resolvido a partir de um insert. Isso já causou uma
+falha real (`permission denied for table work_code_counters`) pega pelos testes de banco antes de
+chegar a produção.
 
 Privilégios de tabela são concedidos explicitamente (`grant`) e revogados de `anon`.
 Views usam `security_invoker = true`; sem isso, uma view rodaria com os privilégios do dono e
@@ -90,6 +101,35 @@ O logotipo é referenciado por URL HTTPS validada por Zod (`organizationSchema`)
 direto — evita processar binários e não depende de arquivos locais em produção.
 A planilha importada é lida em memória, com limite de **8 MB** e extensão restrita a `.xlsx`/`.xlsm`;
 nada é gravado em disco.
+
+### Anexos de Obras (primeiro upload real do projeto)
+
+`features/works/actions.ts` (`uploadWorkAttachment`) é o único ponto do sistema que recebe um
+`File` real, via `FormData`. Validação em camadas, sempre no servidor (nunca confiar só no `accept`
+do input):
+
+1. Tipo MIME contra uma lista fechada: `application/pdf`, `image/jpeg`, `image/png`, `image/webp`.
+2. Tamanho máximo de **10 MB** (`file.size`, checado antes do upload).
+3. Nome de arquivo sanitizado (`sanitizeForStoragePath`) antes de compor o caminho no Storage —
+   nunca o nome original cru, para evitar path traversal ou caracteres inválidos.
+
+O arquivo vai para o bucket privado **`work-attachments`** (`public = false`), no caminho
+`{organization_id}/{work_id}/{attachment_id}-{nome-sanitizado}`. A aplicação nunca lê nem grava
+uma URL pública: toda exibição/download usa uma **URL assinada gerada sob demanda** (TTL de 1
+hora, `getSignedAttachmentUrl`), nunca armazenada em banco.
+
+Políticas de `storage.objects` (select/insert/delete) exigem
+`is_active_member((storage.foldername(name))[1]::uuid)` — o primeiro segmento do caminho é o
+`organization_id`, então RLS de Storage segue a mesma regra de isolamento por organização do resto
+do sistema.
+
+**Limitação de teste conhecida:** o ambiente de testes de banco (`tests/db/`, PGlite/WASM) não tem
+o schema `storage` do Supabase, então as policies de `storage.objects` não são exercidas por
+`npm run test:db`. A migration isola esse bloco inteiro atrás de um
+`if exists (select 1 from pg_namespace where nspname = 'storage')`, então ele simplesmente não roda
+em teste — as policies precisam ser **checadas manualmente contra um projeto Supabase real** antes
+de liberar o módulo Obras em produção (upload, download e tentativa de acesso cruzado entre
+organizações).
 
 ## Exclusão física
 

@@ -62,13 +62,21 @@ Fonte **Geist** (`next/font`), com números tabulares em tudo que é financeiro.
 
 ```
 components/ui/        button · field (Input, Textarea, NativeSelect, Checkbox, FormField, Callout)
-                      card (Card, CardHeader, SectionHeading) · table · badge · dialog
+                      card (Card, CardHeader, SectionHeading) · table · badge · dialog · tabs
                       menu (dropdown) · tooltip · states (skeletons, EmptyState, ErrorState)
 components/layout/    sidebar (Sidebar + MobileNav) · topbar · page-header
 components/finance/   money-input (MoneyInput, PercentInput) · metric-card (MetricCard, StatGroup)
                       summary-panel · period-filter
 components/dashboard/ charts
 ```
+
+### `Tabs` (`components/ui/tabs.tsx`)
+
+Wrapper fino sobre `@radix-ui/react-tabs` (já era dependência do projeto, nunca tinha sido usado).
+Único caso de uso até agora é a página de detalhe de uma obra (`/obras/[id]`), que precisa de 4
+seções densas e autocontidas (Visão geral / Custos e serviços / Fotos e documentos / Relatório) —
+exatamente o cenário certo para abas. Não virou um padrão geral da interface: o resto do sistema
+continua preferindo páginas e cards separados a abas dentro de uma mesma tela.
 
 Regra de ouro: **nenhuma regra financeira dentro de componente React.** Cálculo vem de
 `lib/finance/engine.ts`; agregação vem das funções SQL.

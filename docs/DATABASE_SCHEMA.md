@@ -177,6 +177,81 @@ monthly_closings (organization_id, year, month)
 audit_logs (organization_id, created_at desc) · (entity_type, entity_id) · (user_id)
 ```
 
+## Módulo Obras (`0008_works.sql`)
+
+Controle de reformas, reparos e manutenções nos imóveis administrados. **Independente** do
+financeiro de comissões: não participa do fechamento de mês (`assert_month_open` não é anexada a
+nenhuma tabela aqui) e não gera lançamentos em `financial_entries`. Compartilha organização,
+autenticação, RLS e os mesmos padrões de auditoria/RPC do resto do sistema.
+
+"Imóvel" e "proprietário" são texto livre (`property_label`, `owner_label`) — o projeto não tem
+cadastro estruturado de imóveis/proprietários (proibido em `CLAUDE.md`) e este módulo não cria um.
+
+### Tabelas
+
+| Tabela | Conteúdo |
+| --- | --- |
+| `work_code_counters` | Contador `(organization_id, year) -> last_number`, usado só pela geração de código |
+| `works` | A obra: identificação, texto livre de imóvel/proprietário, status/categoria/prioridade (`text + check`, não enum), datas, `is_archived` |
+| `work_entries` | Materiais, serviços e outros custos da obra. `total_amount` é sempre `quantity * unit_price`, exceto quando `total_is_manual = true` |
+| `work_attachments` | Notas fiscais, recibos, orçamentos, comprovantes e fotos antes/durante/depois. `storage_path` único, aponta para o bucket `work-attachments` |
+| `work_activities` | Histórico legível da obra (frases prontas, gravadas explicitamente por cada RPC — não é o `audit_logs` genérico) |
+
+`status`, `category`, `priority`, `entry_type`, `unit`, `category` (anexo) e `action` (atividade)
+são `text` com `check (... in (...))`, não enums Postgres — decisão deliberada para permitir
+adicionar valores sem `ALTER TYPE`.
+
+**Exclusão é por ciclo de vida, não por correção**: obras usam `is_archived`/`archived_at`/
+`archived_by`/`archived_reason` (nunca são apagadas de verdade — "excluir" uma obra é arquivá-la).
+Lançamentos e anexos usam `deleted_at` (a mesma semântica de "removi porque errei" do resto do
+sistema).
+
+Constraint relevante:
+
+```sql
+constraint works_dates_ck check (
+  completed_at is null or started_at is null or completed_at >= started_at
+)
+```
+
+### Geração do código (`OBR-2026-0001`)
+
+`app_generate_work_code(organization_id)` faz um único `insert ... on conflict (organization_id,
+year) do update ... returning last_number` — atômico e seguro sob concorrência sem precisar de
+`select ... for update` explícito. Requer grant de `update` em `work_code_counters` além de
+`select`/`insert` (o Postgres exige privilégio de update mesmo quando o conflito é resolvido a
+partir de um insert).
+
+### RPCs
+
+```
+app_save_work(payload, work_id, metadata)          -> cria/edita a obra, gera o código na criação
+app_archive_work(work_id, reason, metadata)        -> "exclusão" (nunca física)
+app_unarchive_work(work_id, metadata)              -> reabre uma obra arquivada
+app_save_work_entry(payload, work_entry_id, metadata) -> material/serviço/outro custo
+app_delete_work_entry(work_entry_id, metadata)     -> exclusão lógica de um item
+app_log_work_activity(work_id, action, description) -> helper interno de histórico
+app_register_work_attachment(payload, metadata)    -> registra a linha após o upload físico
+app_delete_work_attachment(attachment_id, metadata) -> soft delete; retorna o storage_path
+                                                        para a Server Action remover o objeto físico
+```
+
+Reaproveita os mesmos códigos de erro (`CF002` campo obrigatório/inválido, `CF005` registro
+inexistente ou de outra organização).
+
+### Storage
+
+Bucket privado `work-attachments` (`public = false`, `file_size_limit = 10485760`,
+`allowed_mime_types` = PDF/JPEG/PNG/WEBP). Caminho:
+`{organization_id}/{work_id}/{attachment_id}-{nome-sanitizado}`. URLs assinadas (TTL 1h) são
+geradas sob demanda pela aplicação — nunca armazenadas. Políticas de `storage.objects` (select/
+insert/delete) checam `is_active_member((storage.foldername(name))[1]::uuid)`.
+
+Todo o bloco de Storage da migration está dentro de
+`do $$ begin if exists (select 1 from pg_namespace where nspname = 'storage') then ... end if; end
+$$;` — necessário porque o ambiente de testes (PGlite) não tem o schema `storage` do Supabase. Ver
+"Testes do schema" e `docs/SECURITY.md`.
+
 ## Testes do schema
 
 `tests/db/` sobe um PostgreSQL real em memória (PGlite), aplica todas as migrations e verifica

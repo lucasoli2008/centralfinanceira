@@ -27,6 +27,13 @@ pagar/receber, folha de pagamento, contabilidade, estoque, módulos de ERP.
 
 Ideia fora do escopo → registre em `docs/FUTURE_IDEAS.md` **sem implementar**.
 
+**Nota sobre "fotos de imóveis":** a proibição acima é sobre fotos de **anúncio/listagem** de
+imóvel (o que transformaria o produto em um portal/CRM imobiliário). Isso é diferente das fotos de
+**documentação de serviço executado** do módulo Obras (`/obras`) — antes/durante/depois de uma
+reforma ou reparo, anexadas a uma obra específica para compor o relatório em PDF dela. Essas fotos
+são permitidas e já implementadas (`work_attachments`, categorias `foto_antes`/`foto_durante`/
+`foto_depois`); não abrem precedente para uma galeria de imóveis ou portal externo.
+
 ## 3. Stack
 
 Next.js 16 (App Router) · React 19 · TypeScript estrito · Tailwind CSS v4 · Radix UI ·

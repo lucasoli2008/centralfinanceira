@@ -287,3 +287,142 @@ export interface BrokerStatementRow {
   split_fixed_amount: number | null;
   payout_amount: number;
 }
+
+// -----------------------------------------------------------------------------
+// Obras — controle de reformas e manutenções (supabase/migrations/0008_works.sql)
+// -----------------------------------------------------------------------------
+
+export type WorkStatus =
+  | "planejada"
+  | "em_andamento"
+  | "pausada"
+  | "aguardando_material"
+  | "aguardando_prestador"
+  | "concluida"
+  | "cancelada";
+
+export type WorkCategory =
+  | "manutencao"
+  | "reforma"
+  | "reparo_hidraulico"
+  | "reparo_eletrico"
+  | "pintura"
+  | "alvenaria"
+  | "telhado"
+  | "limpeza"
+  | "jardinagem"
+  | "mobiliario"
+  | "manutencao_preventiva"
+  | "outros";
+
+export type WorkPriority = "baixa" | "normal" | "alta" | "urgente";
+
+export type WorkEntryType = "material" | "servico" | "outro_custo";
+
+export type WorkEntryUnit =
+  | "unidade"
+  | "metro"
+  | "m2"
+  | "m3"
+  | "litro"
+  | "quilo"
+  | "pacote"
+  | "caixa"
+  | "diaria"
+  | "servico";
+
+export type WorkAttachmentCategory =
+  | "nota_fiscal"
+  | "recibo"
+  | "orcamento"
+  | "comprovante"
+  | "foto_antes"
+  | "foto_durante"
+  | "foto_depois"
+  | "outro_documento";
+
+export type WorkActivityAction =
+  | "obra_criada"
+  | "status_alterado"
+  | "item_adicionado"
+  | "item_removido"
+  | "documento_enviado"
+  | "foto_adicionada"
+  | "obra_concluida"
+  | "obra_arquivada";
+
+export interface WorkRow {
+  id: string;
+  organization_id: string;
+  code: string;
+  title: string;
+  property_label: string;
+  address: string;
+  owner_label: string;
+  responsible_name: string;
+  description: string;
+  status: WorkStatus;
+  category: WorkCategory;
+  priority: WorkPriority;
+  requested_at: string | null;
+  started_at: string | null;
+  expected_at: string | null;
+  completed_at: string | null;
+  notes: string | null;
+  is_archived: boolean;
+  archived_at: string | null;
+  archived_by: string | null;
+  archived_reason: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkEntryRow {
+  id: string;
+  organization_id: string;
+  work_id: string;
+  entry_type: WorkEntryType;
+  entry_date: string;
+  description: string;
+  category: string | null;
+  supplier_name: string | null;
+  quantity: number;
+  unit: WorkEntryUnit;
+  unit_price: number;
+  total_amount: number;
+  total_is_manual: boolean;
+  notes: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface WorkAttachmentRow {
+  id: string;
+  organization_id: string;
+  work_id: string;
+  work_entry_id: string | null;
+  category: WorkAttachmentCategory;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  file_size_bytes: number;
+  description: string | null;
+  uploaded_by: string | null;
+  created_at: string;
+  deleted_at: string | null;
+}
+
+export interface WorkActivityRow {
+  id: string;
+  organization_id: string;
+  work_id: string;
+  action: WorkActivityAction;
+  description: string;
+  created_by: string | null;
+  created_at: string;
+}

@@ -20,6 +20,7 @@ const SECTION_LABELS: { prefix: string; label: string }[] = [
   { prefix: "/vendas", label: "Vendas" },
   { prefix: "/locacoes", label: "Locações" },
   { prefix: "/corretores", label: "Corretores" },
+  { prefix: "/obras", label: "Obras" },
   { prefix: "/meses", label: "Meses" },
   { prefix: "/relatorios", label: "Relatórios" },
   { prefix: "/importar", label: "Importar planilha" },
