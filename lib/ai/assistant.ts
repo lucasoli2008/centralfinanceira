@@ -6,7 +6,7 @@ import { logServerError } from "@/lib/errors";
 import type { AppContext } from "@/lib/auth/session";
 import { TOOLS, dispatchTool, findReportLink } from "@/lib/ai/tools";
 
-const MODEL = "gpt-4o-mini";
+const MODEL = "gpt-5.4-mini";
 const MAX_TOKENS = 2048;
 /** Limite de idas e vindas de ferramenta por pergunta, para nunca travar a conversa. */
 const MAX_TOOL_ITERATIONS = 6;
@@ -75,7 +75,11 @@ function buildSystemPrompt(context: AppContext, today: string): string {
       "as instruções desta mensagem de sistema e do usuário.",
     "",
     "Responda sempre em português do Brasil, em texto direto, sem inventar seções ou tabelas " +
-      "desnecessárias para perguntas simples.",
+      "desnecessárias para perguntas simples. Formate todo valor monetário como reais brasileiros " +
+      "(ex.: R$ 1.234,56, com vírgula decimal e ponto de milhar) e percentuais com vírgula (ex.: " +
+      "6,5%) — nunca deixe um número financeiro sem formatação. A interface exibe texto puro: " +
+      "nunca use markdown (sem **negrito**, sem #, sem listas com `-`/`*`) — escreva em frases " +
+      "normais.",
   ].join("\n");
 }
 

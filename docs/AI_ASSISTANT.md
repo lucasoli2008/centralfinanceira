@@ -23,7 +23,7 @@ pedir para o modelo dividir.
 | --- | --- |
 | `lib/ai/tools.ts` | Define as 8 ferramentas (JSON Schema + validação Zod) e despacha cada uma para a função real |
 | `lib/ai/broker-match.ts` | Lógica pura de casamento de nome de corretor (reaproveita `brokerNameKey` da importação) |
-| `lib/ai/assistant.ts` | Prompt de sistema e laço manual de tool-use (function calling) com a API da OpenAI (`gpt-4o-mini`) |
+| `lib/ai/assistant.ts` | Prompt de sistema e laço manual de tool-use (function calling) com a API da OpenAI (`gpt-5.4-mini`) |
 | `app/api/assistente/route.ts` | Route Handler autenticado (`requireAppContext`); sem estado — o cliente reenvia o histórico completo a cada pergunta |
 | `components/assistant/assistant-panel.tsx` | Painel de chat, sem persistência (fechar o diálogo esquece a conversa) |
 
@@ -35,12 +35,12 @@ leitura; nenhuma grava nada.
 
 ## Provedor de IA
 
-API da OpenAI (`openai` no `package.json`), modelo `gpt-4o-mini` — constante `MODEL` no topo de
-`lib/ai/assistant.ts`, único lugar a trocar para atualizar o modelo (o projeto atual da OpenAI só
-libera esse modelo; troque para `gpt-5`/`gpt-5.1` quando o acesso for liberado — confirme com
-`client.models.list()` antes de trocar, pois a listagem pode não refletir a permissão real de uso).
-Exige `OPENAI_API_KEY` no ambiente do servidor (ver `docs/DEPLOYMENT.md`). As ferramentas são
-declaradas no formato de
+API da OpenAI (`openai` no `package.json`), modelo `gpt-5.4-mini` — constante `MODEL` no topo de
+`lib/ai/assistant.ts`, único lugar a trocar para atualizar o modelo. O acesso a modelos desse
+projeto na OpenAI já mudou várias vezes (instabilidade do lado deles) — antes de trocar o modelo,
+**não confie só em `client.models.list()`** (a listagem já mostrou modelos que na prática davam
+403); confirme com uma chamada real de `chat.completions.create()`. Exige `OPENAI_API_KEY` no
+ambiente do servidor (ver `docs/DEPLOYMENT.md`). As ferramentas são declaradas no formato de
 *function calling* da OpenAI (`type: "function"`), definidas em `lib/ai/tools.ts` a partir de um
 JSON Schema por ferramenta — a lógica de despacho (`dispatchTool`) é a mesma independentemente do
 provedor.
