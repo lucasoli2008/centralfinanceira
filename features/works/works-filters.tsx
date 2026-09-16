@@ -53,7 +53,7 @@ export function WorksFilters({ years }: { years: number[] }) {
         />
       </div>
 
-      <PeriodFilter years={years} />
+      <PeriodFilter years={years} allowAll />
 
       <NativeSelect
         aria-label="Status"

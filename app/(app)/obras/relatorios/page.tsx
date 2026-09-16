@@ -21,7 +21,7 @@ export default function ObrasRelatoriosPage() {
           <div>
             <CardTitle>Relatório geral</CardTitle>
             <CardDescription>
-              Filtre por período de início, status e categoria. O PDF lista os filtros aplicados;
+              Filtre por período (data de início ou, para obras não iniciadas, de solicitação), status e categoria. O PDF lista os filtros aplicados;
               o CSV é o mesmo conjunto de dados, pronto para planilhas.
             </CardDescription>
           </div>

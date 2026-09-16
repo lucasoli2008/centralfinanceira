@@ -12,8 +12,12 @@ import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "central-financeira:periodo";
 
+/** Valor sintético da opção "Tudo": remove o período da URL em vez de gravar um preset. */
+const ALL = "todos";
+type QuickValue = PeriodPreset | typeof ALL;
+
 /** Presets que ficam sempre visíveis no controle segmentado. */
-const QUICK: SegmentedOption<PeriodPreset>[] = [
+const QUICK: SegmentedOption<QuickValue>[] = [
   { value: "este-mes", label: "Este mês", shortLabel: "Mês" },
   { value: "mes-anterior", label: "Mês anterior", shortLabel: "Anterior" },
   { value: "ultimos-3-meses", label: "3 meses", shortLabel: "3M" },
@@ -24,6 +28,16 @@ const QUICK: SegmentedOption<PeriodPreset>[] = [
 /** Presets menos frequentes, acessíveis pelo botão "Outro período". */
 const MORE: PeriodPreset[] = ["ano-anterior", "mes", "personalizado"];
 
+interface PeriodFilterProps {
+  years: number[];
+  /**
+   * Oferece a opção "Tudo" e faz dela o padrão quando a URL não traz período.
+   * Usado em telas cujos registros não têm data obrigatória (obras), onde
+   * esconder tudo por padrão seria pior do que mostrar tudo.
+   */
+  allowAll?: boolean;
+}
+
 /**
  * Filtro global de período.
  *
@@ -31,16 +45,22 @@ const MORE: PeriodPreset[] = ["ano-anterior", "mes", "personalizado"];
  * Os presets mais usados ficam num controle segmentado; os demais em um popover,
  * junto dos campos de mês específico e de intervalo personalizado.
  */
-export function PeriodFilter({ years }: { years: number[] }) {
+export function PeriodFilter({ years, allowAll = false }: PeriodFilterProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [open, setOpen] = React.useState(false);
 
-  const preset = (searchParams.get("periodo") ?? "este-mes") as PeriodPreset;
+  const rawPreset = searchParams.get("periodo");
+  const showingAll = allowAll && !rawPreset;
+  const preset = (rawPreset ?? "este-mes") as PeriodPreset;
   const now = new Date();
   const currentYear = now.getFullYear();
-  const isCustom = MORE.includes(preset);
+  const isCustom = !showingAll && MORE.includes(preset);
+  const quickOptions = React.useMemo<SegmentedOption<QuickValue>[]>(
+    () => (allowAll ? [{ value: ALL, label: "Tudo", shortLabel: "Tudo" }, ...QUICK] : QUICK),
+    [allowAll],
+  );
 
   const update = React.useCallback(
     (changes: Record<string, string | null>) => {
@@ -52,7 +72,8 @@ export function PeriodFilter({ years }: { years: number[] }) {
       params.delete("pagina");
 
       try {
-        window.localStorage.setItem(STORAGE_KEY, params.get("periodo") ?? "este-mes");
+        // "Tudo" é uma escolha local desta tela e não deve virar padrão das demais.
+        if (params.get("periodo")) window.localStorage.setItem(STORAGE_KEY, params.get("periodo")!);
       } catch {
         // Sem localStorage: o filtro continua funcionando pela URL.
       }
@@ -64,7 +85,7 @@ export function PeriodFilter({ years }: { years: number[] }) {
 
   // Restaura o último período usado quando a URL não define nenhum.
   React.useEffect(() => {
-    if (searchParams.get("periodo")) return;
+    if (allowAll || searchParams.get("periodo")) return;
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored && stored !== "este-mes" && (PERIOD_PRESETS as readonly string[]).includes(stored)) {
@@ -78,11 +99,13 @@ export function PeriodFilter({ years }: { years: number[] }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Segmented
+      <Segmented<QuickValue>
         ariaLabel="Período"
-        options={QUICK}
-        value={isCustom ? ("" as PeriodPreset) : preset}
-        onChange={(next) => update({ periodo: next, de: null, ate: null })}
+        options={quickOptions}
+        value={showingAll ? ALL : isCustom ? ("" as PeriodPreset) : preset}
+        onChange={(next) =>
+          update({ periodo: next === ALL ? null : next, de: null, ate: null, mes: null, ano: null })
+        }
       />
 
       <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>

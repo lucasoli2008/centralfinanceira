@@ -21,7 +21,11 @@ export interface WorkFilters {
   priority?: WorkPriority | null;
   responsibleName?: string | null;
   ownerLabel?: string | null;
-  /** Intervalo aplicado à data de início da obra (started_at). */
+  /**
+   * Intervalo aplicado à data de referência da obra: início, ou — quando a
+   * obra ainda não começou — data da solicitação, ou, na falta das duas, a
+   * data de cadastro. Obras planejadas nunca somem do período por falta de início.
+   */
   from?: string | null;
   to?: string | null;
   /** Busca livre em título, imóvel, endereço e proprietário. */
@@ -30,6 +34,33 @@ export interface WorkFilters {
 }
 
 const WORK_COLUMNS = "*";
+
+function nextDay(isoDate: string): string {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Filtro de período em sintaxe PostgREST (`or=`), com a data de referência em
+ * cascata: `started_at` → `requested_at` → `created_at`. Cada ramo só se aplica
+ * quando as datas anteriores são nulas, para que a obra caia em um único ramo.
+ */
+function referenceDateClause(from?: string | null, to?: string | null): string {
+  const range = (column: string, exclusiveEnd = false) => {
+    const parts: string[] = [];
+    if (from) parts.push(`${column}.gte.${from}`);
+    if (to) parts.push(exclusiveEnd ? `${column}.lt.${nextDay(to)}` : `${column}.lte.${to}`);
+    return parts.join(",");
+  };
+
+  return [
+    `and(${range("started_at")})`,
+    `and(started_at.is.null,${range("requested_at")})`,
+    // created_at é timestamptz: o limite superior precisa ser o dia seguinte, exclusivo.
+    `and(started_at.is.null,requested_at.is.null,${range("created_at", true)})`,
+  ].join(",");
+}
 
 function buildWorksQuery(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
@@ -46,8 +77,7 @@ function buildWorksQuery(
   if (filters.priority) query = query.eq("priority", filters.priority);
   if (filters.responsibleName) query = query.ilike("responsible_name", `%${filters.responsibleName}%`);
   if (filters.ownerLabel) query = query.ilike("owner_label", `%${filters.ownerLabel}%`);
-  if (filters.from) query = query.gte("started_at", filters.from);
-  if (filters.to) query = query.lte("started_at", filters.to);
+  if (filters.from || filters.to) query = query.or(referenceDateClause(filters.from, filters.to));
 
   if (filters.search && filters.search.trim() !== "") {
     const term = filters.search.trim().replace(/[%,]/g, "");
@@ -186,25 +216,6 @@ export async function getWorkSummary(filters: WorkFilters): Promise<WorkDashboar
     pausadas: rows.filter((row) => row.status === "pausada").length,
     gastoTotalPeriodo,
   };
-}
-
-/** Obras mais recentemente atualizadas, para o dashboard. */
-export async function listRecentWorks(limit = 5): Promise<WorkRow[]> {
-  const supabase = await createSupabaseServerClient();
-
-  const { data, error } = await supabase
-    .from("works")
-    .select("*")
-    .eq("is_archived", false)
-    .order("updated_at", { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    logServerError("queries.listRecentWorks", error);
-    return [];
-  }
-
-  return (data ?? []) as WorkRow[];
 }
 
 export interface WorkAggregate {

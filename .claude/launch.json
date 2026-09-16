@@ -5,7 +5,7 @@
       "name": "central-financeira",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "port": 3010
     }
   ]
 }
