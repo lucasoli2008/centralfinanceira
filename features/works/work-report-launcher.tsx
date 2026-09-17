@@ -5,14 +5,15 @@ import { FileDown, Sheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormField, Input, NativeSelect } from "@/components/ui/field";
 import { buildSearchParams } from "@/lib/utils";
-import { WORK_CATEGORIES, WORK_STATUSES } from "@/lib/validation/work";
-import { WORK_CATEGORY_LABELS, WORK_STATUS_LABELS } from "@/lib/formatting/labels";
+import { WORK_CATEGORIES, WORK_PRIORITIES, WORK_STATUSES } from "@/lib/validation/work";
+import { WORK_CATEGORY_LABELS, WORK_PRIORITY_LABELS, WORK_STATUS_LABELS } from "@/lib/formatting/labels";
 
 export function WorkReportLauncher() {
   const [from, setFrom] = React.useState("");
   const [to, setTo] = React.useState("");
   const [status, setStatus] = React.useState("");
   const [category, setCategory] = React.useState("");
+  const [priority, setPriority] = React.useState("");
   const [includeArchived, setIncludeArchived] = React.useState(false);
 
   function hrefFor(formato: "pdf" | "csv") {
@@ -22,6 +23,7 @@ export function WorkReportLauncher() {
       ate: to,
       status,
       categoria: category,
+      prioridade: priority,
       arquivadas: includeArchived ? "1" : null,
     })}`;
   }
@@ -72,6 +74,20 @@ export function WorkReportLauncher() {
             {WORK_CATEGORIES.map((value) => (
               <option key={value} value={value}>
                 {WORK_CATEGORY_LABELS[value]}
+              </option>
+            ))}
+          </NativeSelect>
+        </FormField>
+        <FormField label="Prioridade" htmlFor="relatorio-obras-prioridade">
+          <NativeSelect
+            id="relatorio-obras-prioridade"
+            value={priority}
+            onChange={(event) => setPriority(event.target.value)}
+          >
+            <option value="">Todas as prioridades</option>
+            {WORK_PRIORITIES.map((value) => (
+              <option key={value} value={value}>
+                {WORK_PRIORITY_LABELS[value]}
               </option>
             ))}
           </NativeSelect>

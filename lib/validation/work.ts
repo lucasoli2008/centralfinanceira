@@ -120,6 +120,8 @@ export const workEntrySchema = z.object({
   unitPrice: moneySchema,
   totalAmount: moneySchema,
   totalIsManual: z.boolean().default(false),
+  isPaid: z.boolean().default(false),
+  paidAt: dateSchema.nullable().optional(),
   notes: z.string().trim().max(2000, "Use no máximo 2000 caracteres.").nullable().optional(),
 });
 

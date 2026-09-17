@@ -4,18 +4,48 @@ import { WorkForm } from "./work-form";
 import { getWork } from "@/server/queries/works";
 import type { WorkFormValues } from "@/lib/validation/work";
 
-/** Página de nova obra. */
-export function NewWorkPage() {
+/** Página de nova obra, com suporte a duplicação (`?duplicar=<id>`). */
+export async function NewWorkPage({ duplicateFrom }: { duplicateFrom?: string } = {}) {
+  let defaultValues: Partial<WorkFormValues> | undefined;
+  let sourceCode: string | null = null;
+
+  if (duplicateFrom) {
+    const source = await getWork(duplicateFrom);
+    if (source) {
+      sourceCode = source.code;
+      defaultValues = {
+        title: `${source.title} (cópia)`,
+        propertyLabel: source.property_label,
+        address: source.address,
+        ownerLabel: source.owner_label,
+        responsibleName: source.responsible_name,
+        description: source.description,
+        status: "planejada",
+        category: source.category,
+        priority: source.priority,
+        requestedAt: new Date().toISOString().slice(0, 10),
+        startedAt: "",
+        expectedAt: "",
+        completedAt: "",
+        notes: source.notes ?? "",
+      };
+    }
+  }
+
   return (
     <>
       <PageHeader
         title="Nova obra"
-        description="Cadastre uma obra, reforma ou manutenção para acompanhar custos, serviços e documentos."
+        description={
+          sourceCode
+            ? `Copiando dados da obra ${sourceCode}. Itens, fotos e documentos não são copiados.`
+            : "Cadastre uma obra, reforma ou manutenção para acompanhar custos, serviços e documentos."
+        }
         backHref="/obras"
         backLabel="Obras"
       />
 
-      <WorkForm />
+      <WorkForm defaultValues={defaultValues} />
     </>
   );
 }

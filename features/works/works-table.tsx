@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, Eye, MoreHorizontal, Paperclip, Pencil } from "lucide-react";
+import { Archive, ArchiveRestore, Eye, MoreHorizontal, Paperclip, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Table, TableWrapper, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,8 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FormField, Textarea } from "@/components/ui/field";
 import { WorksFilters } from "./works-filters";
-import { archiveWork } from "./actions";
+import { archiveWork, unarchiveWork } from "./actions";
+import { isWorkOverdue } from "./work-status";
 import { formatCurrency } from "@/lib/formatting/number";
 import { formatDate } from "@/lib/formatting/date";
 import { WORK_STATUS_LABELS, WORK_STATUS_TONES } from "@/lib/formatting/labels";
@@ -32,15 +33,32 @@ interface WorksTableProps {
   page: number;
   pageSize: number;
   total: number;
+  archivedView?: boolean;
 }
 
-export function WorksTable({ rows, aggregates, years, page, pageSize, total }: WorksTableProps) {
+export function WorksTable({ rows, aggregates, years, page, pageSize, total, archivedView = false }: WorksTableProps) {
   const router = useRouter();
   const [archiving, setArchiving] = React.useState<WorkRow | null>(null);
   const [reason, setReason] = React.useState("");
   const [pending, setPending] = React.useState(false);
+  const [reopeningId, setReopeningId] = React.useState<string | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const today = new Date().toISOString().slice(0, 10);
+
+  async function reopen(row: WorkRow) {
+    setReopeningId(row.id);
+    const result = await unarchiveWork(row.id);
+    setReopeningId(null);
+
+    if (result.status === "error") {
+      toast.error(result.message);
+      return;
+    }
+
+    toast.success("Obra reaberta.");
+    router.refresh();
+  }
 
   async function confirmArchive() {
     if (!archiving) return;
@@ -65,13 +83,21 @@ export function WorksTable({ rows, aggregates, years, page, pageSize, total }: W
 
       <div className="surface-card overflow-hidden">
         {rows.length === 0 ? (
-          <EmptyState
-            title="Nenhuma obra encontrada."
-            description="Crie a primeira obra para começar a organizar serviços, materiais, fotos e documentos."
-            actionLabel="Nova obra"
-            actionHref="/obras/nova"
-            icon="search"
-          />
+          archivedView ? (
+            <EmptyState
+              title="Nenhuma obra arquivada."
+              description="Obras arquivadas aparecem aqui e podem ser reabertas a qualquer momento."
+              icon="inbox"
+            />
+          ) : (
+            <EmptyState
+              title="Nenhuma obra encontrada."
+              description="Crie a primeira obra para começar a organizar serviços, materiais, fotos e documentos."
+              actionLabel="Nova obra"
+              actionHref="/obras/nova"
+              icon="search"
+            />
+          )
         ) : (
           <TableWrapper>
             <Table>
@@ -111,7 +137,19 @@ export function WorksTable({ rows, aggregates, years, page, pageSize, total }: W
                       <TD className="text-muted">{row.owner_label}</TD>
                       <TD className="text-muted">{row.responsible_name}</TD>
                       <TD>
-                        <Badge tone={WORK_STATUS_TONES[row.status]}>{WORK_STATUS_LABELS[row.status]}</Badge>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Badge tone={WORK_STATUS_TONES[row.status]}>{WORK_STATUS_LABELS[row.status]}</Badge>
+                          {row.is_archived ? (
+                            <Badge tone="neutral" title={row.archived_reason ?? undefined}>
+                              Arquivada
+                            </Badge>
+                          ) : null}
+                          {isWorkOverdue(row, today) ? (
+                            <Badge tone="danger" title={`Previsão: ${formatDate(row.expected_at)}`}>
+                              Atrasada
+                            </Badge>
+                          ) : null}
+                        </div>
                       </TD>
                       <TD className="whitespace-nowrap tabular">
                         {row.started_at ? formatDate(row.started_at) : "—"}
@@ -144,16 +182,25 @@ export function WorksTable({ rows, aggregates, years, page, pageSize, total }: W
                                 Ver detalhes
                               </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link href={`/obras/${row.id}/editar`}>
-                                <Pencil />
-                                Editar
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem destructive onSelect={() => setArchiving(row)}>
-                              <Archive />
-                              Arquivar
-                            </DropdownMenuItem>
+                            {row.is_archived ? (
+                              <DropdownMenuItem disabled={reopeningId === row.id} onSelect={() => reopen(row)}>
+                                <ArchiveRestore />
+                                Reabrir obra
+                              </DropdownMenuItem>
+                            ) : (
+                              <>
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/obras/${row.id}/editar`}>
+                                    <Pencil />
+                                    Editar
+                                  </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem destructive onSelect={() => setArchiving(row)}>
+                                  <Archive />
+                                  Arquivar
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TD>

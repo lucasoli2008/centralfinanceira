@@ -23,6 +23,8 @@ export interface WorkTotals {
   servicesTotal: number;
   otherTotal: number;
   grandTotal: number;
+  paidTotal: number;
+  unpaidTotal: number;
 }
 
 /** Anexo com a URL assinada já resolvida no servidor (nunca armazenada). */

@@ -287,6 +287,185 @@ describe("app_save_work_entry", () => {
   });
 });
 
+describe("pagamento dos itens (0009)", () => {
+  const entryPayload = (workId: string, extra: Record<string, unknown> = {}) => ({
+    work_id: workId,
+    entry_type: "servico",
+    entry_date: "2026-04-01",
+    description: "Pintura da sala",
+    quantity: 1,
+    unit: "servico",
+    unit_price: 1200,
+    total_is_manual: false,
+    ...extra,
+  });
+
+  it("item pago sem data recebe a data de hoje; não pago zera a data", async () => {
+    const workId = await saveWork(roberta.ownerId, baseWork());
+    const entryId = await saveWorkEntry(roberta.ownerId, entryPayload(workId, { is_paid: true }));
+
+    const paid = await asUser(db, roberta.ownerId, () =>
+      db.query<{ is_paid: boolean; paid_at: string | null }>(
+        `select is_paid, paid_at::text from public.work_entries where id = $1`,
+        [entryId],
+      ),
+    );
+    expect(paid.rows[0].is_paid).toBe(true);
+    expect(paid.rows[0].paid_at).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    await saveWorkEntry(roberta.ownerId, entryPayload(workId, { is_paid: false, paid_at: "2026-04-02" }), entryId);
+    const unpaid = await asUser(db, roberta.ownerId, () =>
+      db.query<{ is_paid: boolean; paid_at: string | null }>(
+        `select is_paid, paid_at::text from public.work_entries where id = $1`,
+        [entryId],
+      ),
+    );
+    expect(unpaid.rows[0]).toEqual({ is_paid: false, paid_at: null });
+  });
+
+  it("a constraint impede pago sem data por escrita direta", async () => {
+    const workId = await saveWork(roberta.ownerId, baseWork());
+    const entryId = await saveWorkEntry(roberta.ownerId, entryPayload(workId));
+
+    const message = await expectError(
+      asUser(db, roberta.ownerId, () =>
+        db.query(`update public.work_entries set is_paid = true, paid_at = null where id = $1`, [entryId]),
+      ),
+    );
+    expect(message).toContain("work_entries_paid_ck");
+  });
+
+  it("app_set_work_entry_paid marca, registra item_pago e desmarca", async () => {
+    const workId = await saveWork(roberta.ownerId, baseWork());
+    const entryId = await saveWorkEntry(roberta.ownerId, entryPayload(workId));
+
+    await asUser(db, roberta.ownerId, () =>
+      db.query(`select public.app_set_work_entry_paid($1::uuid, true, '2026-04-10'::date)`, [entryId]),
+    );
+    const paid = await asUser(db, roberta.ownerId, () =>
+      db.query<{ is_paid: boolean; paid_at: string }>(
+        `select is_paid, paid_at::text from public.work_entries where id = $1`,
+        [entryId],
+      ),
+    );
+    expect(paid.rows[0]).toEqual({ is_paid: true, paid_at: "2026-04-10" });
+
+    await asUser(db, roberta.ownerId, () =>
+      db.query(`select public.app_set_work_entry_paid($1::uuid, false)`, [entryId]),
+    );
+
+    const activities = await asUser(db, roberta.ownerId, () =>
+      db.query<{ action: string; description: string }>(
+        `select action, description from public.work_activities where work_id = $1 order by created_at`,
+        [workId],
+      ),
+    );
+    expect(activities.rows.map((row) => row.action)).toEqual([
+      "obra_criada",
+      "item_adicionado",
+      "item_pago",
+      "item_editado",
+    ]);
+    expect(activities.rows[2].description).toContain("R$ 1200,00");
+  });
+
+  it("editar um item registra item_editado e só loga item_pago na transição", async () => {
+    const workId = await saveWork(roberta.ownerId, baseWork());
+    const entryId = await saveWorkEntry(roberta.ownerId, entryPayload(workId));
+
+    await saveWorkEntry(roberta.ownerId, entryPayload(workId, { description: "Pintura completa" }), entryId);
+    await saveWorkEntry(roberta.ownerId, entryPayload(workId, { is_paid: true }), entryId);
+    await saveWorkEntry(roberta.ownerId, entryPayload(workId, { is_paid: true, unit_price: 1300 }), entryId);
+
+    const activities = await asUser(db, roberta.ownerId, () =>
+      db.query<{ action: string }>(
+        `select action from public.work_activities where work_id = $1 order by created_at`,
+        [workId],
+      ),
+    );
+    expect(activities.rows.map((row) => row.action)).toEqual([
+      "obra_criada",
+      "item_adicionado",
+      "item_editado",
+      "item_editado",
+      "item_pago",
+      "item_editado",
+    ]);
+  });
+});
+
+describe("app_update_work_status", () => {
+  it("troca o status, preenche a conclusão e registra as atividades", async () => {
+    const workId = await saveWork(roberta.ownerId, baseWork({ status: "em_andamento" }));
+
+    await asUser(db, roberta.ownerId, () =>
+      db.query(`select public.app_update_work_status($1::uuid, 'concluida')`, [workId]),
+    );
+
+    const work = await asUser(db, roberta.ownerId, () =>
+      db.query<{ status: string; completed_at: string | null }>(
+        `select status, completed_at::text from public.works where id = $1`,
+        [workId],
+      ),
+    );
+    expect(work.rows[0].status).toBe("concluida");
+    expect(work.rows[0].completed_at).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    // Mesmo status de novo: sem atividade duplicada.
+    await asUser(db, roberta.ownerId, () =>
+      db.query(`select public.app_update_work_status($1::uuid, 'concluida')`, [workId]),
+    );
+
+    const activities = await asUser(db, roberta.ownerId, () =>
+      db.query<{ action: string }>(
+        `select action from public.work_activities where work_id = $1 order by created_at`,
+        [workId],
+      ),
+    );
+    expect(activities.rows.map((row) => row.action)).toEqual([
+      "obra_criada",
+      "status_alterado",
+      "obra_concluida",
+    ]);
+  });
+
+  it("recusa obra arquivada ou de outra organização", async () => {
+    const workId = await saveWork(roberta.ownerId, baseWork());
+    await asUser(db, roberta.ownerId, () => db.query(`select public.app_archive_work($1::uuid)`, [workId]));
+
+    const archived = await expectError(
+      asUser(db, roberta.ownerId, () =>
+        db.query(`select public.app_update_work_status($1::uuid, 'pausada')`, [workId]),
+      ),
+    );
+    expect(archived).toContain("Obra não encontrada");
+
+    const activities = await asUser(db, roberta.ownerId, () =>
+      db.query<{ action: string }>(
+        `select action from public.work_activities where work_id = $1 order by created_at`,
+        [workId],
+      ),
+    );
+    expect(activities.rows.map((row) => row.action)).toEqual(["obra_criada", "obra_arquivada"]);
+
+    await asUser(db, roberta.ownerId, () => db.query(`select public.app_unarchive_work($1::uuid)`, [workId]));
+    const reopened = await asUser(db, roberta.ownerId, () =>
+      db.query<{ action: string }>(
+        `select action from public.work_activities where work_id = $1 order by created_at desc limit 1`,
+        [workId],
+      ),
+    );
+    expect(reopened.rows[0].action).toBe("obra_reaberta");
+
+    const foreign = await expectError(
+      asUser(db, outra.ownerId, () =>
+        db.query(`select public.app_update_work_status($1::uuid, 'pausada')`, [workId]),
+      ),
+    );
+    expect(foreign).toContain("Obra não encontrada");
+  });
+});
+
 describe("anexos", () => {
   it("registra um anexo e devolve o storage_path ao remover", async () => {
     const workId = await saveWork(roberta.ownerId, baseWork());
@@ -323,6 +502,19 @@ describe("anexos", () => {
       ]),
     );
     expect(remaining.rows).toHaveLength(0);
+
+    const activities = await asUser(db, roberta.ownerId, () =>
+      db.query<{ action: string; description: string }>(
+        `select action, description from public.work_activities where work_id = $1 order by created_at`,
+        [workId],
+      ),
+    );
+    expect(activities.rows.map((row) => row.action)).toEqual([
+      "obra_criada",
+      "documento_enviado",
+      "anexo_removido",
+    ]);
+    expect(activities.rows[2].description).toContain("nota.pdf");
   });
 });
 

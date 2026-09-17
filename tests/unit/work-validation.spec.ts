@@ -77,4 +77,18 @@ describe("workEntrySchema", () => {
   it("rejeita valor unitário negativo", () => {
     expect(workEntrySchema.safeParse({ ...validEntry, unitPrice: -10 }).success).toBe(false);
   });
+
+  it("pagamento é opcional e nasce como não pago", () => {
+    const result = workEntrySchema.safeParse(validEntry);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.isPaid).toBe(false);
+      expect(result.data.paidAt).toBeUndefined();
+    }
+  });
+
+  it("aceita pago com data e rejeita data inválida", () => {
+    expect(workEntrySchema.safeParse({ ...validEntry, isPaid: true, paidAt: "2026-04-10" }).success).toBe(true);
+    expect(workEntrySchema.safeParse({ ...validEntry, isPaid: true, paidAt: "10/04/2026" }).success).toBe(false);
+  });
 });

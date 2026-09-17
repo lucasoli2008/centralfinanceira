@@ -345,11 +345,15 @@ export type WorkActivityAction =
   | "obra_criada"
   | "status_alterado"
   | "item_adicionado"
+  | "item_editado"
   | "item_removido"
+  | "item_pago"
   | "documento_enviado"
   | "foto_adicionada"
+  | "anexo_removido"
   | "obra_concluida"
-  | "obra_arquivada";
+  | "obra_arquivada"
+  | "obra_reaberta";
 
 export interface WorkRow {
   id: string;
@@ -393,6 +397,8 @@ export interface WorkEntryRow {
   unit_price: number;
   total_amount: number;
   total_is_manual: boolean;
+  is_paid: boolean;
+  paid_at: string | null;
   notes: string | null;
   created_by: string | null;
   updated_by: string | null;

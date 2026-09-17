@@ -36,7 +36,10 @@ transformaria a central financeira em um ERP genérico.
 
 | Ideia | Por que pode fazer sentido | Por que ficou de fora |
 | --- | --- | --- |
-| Gráfico "gastos por mês" no dashboard de Obras | `recharts` já é dependência; dado já existe (`getWorkMonthlySpending`) | Deliberadamente deixado por último no plano de implementação; pode ser adicionado depois sem migração nova |
+| Vencimento e alerta de itens vencidos | Complementaria o pago/não pago (sprint 2) | Encosta em contas a pagar, proibido em `CLAUDE.md`; só a marcação pago/data foi implementada |
+| Edição em lote de itens (marcar vários como pagos) | Menos cliques em obras grandes | Não pedido; o toggle por linha resolve o uso atual |
+| Exportar os lançamentos de uma obra em CSV | Reaproveitaria `lib/csv.ts` | Não pedido; o PDF individual já cobre a prestação de contas |
+| Ordenar a lista de obras por gasto total | Útil para priorizar | Exige agregação no servidor para paginação; ficou de fora do sprint 2 |
 | Cadastro estruturado de imóveis/proprietários | Evitaria digitar o mesmo imóvel em obras diferentes | Proibido em `CLAUDE.md`; Obras usa texto livre de propósito |
 | Vínculo automático entre obra e lançamento financeiro | "Quanto uma reforma custou" apareceria no financeiro principal | Explicitamente fora de escopo (seção 27 do pedido): Obras não gera postagem financeira |
 

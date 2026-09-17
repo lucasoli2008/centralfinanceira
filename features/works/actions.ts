@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppContext } from "@/lib/auth/session";
 import { buildAuditMetadata } from "@/features/entries/actions";
 import {
+  WORK_STATUSES,
   archiveWorkSchema,
   workAttachmentSchema,
   workEntrySchema,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/validation/work";
 import { logServerError, toUserMessage } from "@/lib/errors";
 import type { ActionResult } from "@/lib/action-result";
+import type { WorkStatus } from "@/types/database";
 
 const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
@@ -158,6 +160,8 @@ export async function saveWorkEntry(
     unit_price: entry.unitPrice,
     total_amount: entry.totalAmount,
     total_is_manual: entry.totalIsManual,
+    is_paid: entry.isPaid,
+    paid_at: entry.isPaid ? (entry.paidAt ?? null) : null,
     notes: entry.notes ?? null,
   };
 
@@ -174,6 +178,54 @@ export async function saveWorkEntry(
 
   revalidateWorkPaths(entry.workId);
   return { status: "ok", data: { entryId: data as string } };
+}
+
+export async function setWorkEntryPaid(
+  entryId: string,
+  workId: string,
+  isPaid: boolean,
+  paidAt?: string | null,
+): Promise<ActionResult> {
+  await requireAppContext();
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("app_set_work_entry_paid", {
+    p_work_entry_id: entryId,
+    p_is_paid: isPaid,
+    p_paid_at: isPaid ? (paidAt ?? null) : null,
+    p_metadata: await buildAuditMetadata(),
+  });
+
+  if (error) {
+    logServerError("works.setWorkEntryPaid", error);
+    return { status: "error", message: toUserMessage(error) };
+  }
+
+  revalidateWorkPaths(workId);
+  return { status: "ok" };
+}
+
+export async function updateWorkStatus(workId: string, status: WorkStatus): Promise<ActionResult> {
+  await requireAppContext();
+
+  if (!(WORK_STATUSES as readonly string[]).includes(status)) {
+    return { status: "error", message: "Status inválido." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("app_update_work_status", {
+    p_work_id: workId,
+    p_status: status,
+    p_metadata: await buildAuditMetadata(),
+  });
+
+  if (error) {
+    logServerError("works.updateWorkStatus", error);
+    return { status: "error", message: toUserMessage(error) };
+  }
+
+  revalidateWorkPaths(workId);
+  return { status: "ok" };
 }
 
 export async function deleteWorkEntry(entryId: string, workId: string): Promise<ActionResult> {

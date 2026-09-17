@@ -88,6 +88,33 @@ export function WorkOverviewSection({ work, totals }: { work: WorkRow; totals: W
               </dd>
             </div>
           </div>
+          <div className="space-y-2 border-t border-border pt-3">
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[13px] text-muted">Pago</dt>
+              <dd className="text-[13px] font-medium tabular text-positive">{formatCurrency(totals.paidTotal)}</dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[13px] text-muted">A pagar</dt>
+              <dd className={`text-[13px] font-medium tabular ${totals.unpaidTotal > 0 ? "text-warning" : ""}`}>
+                {formatCurrency(totals.unpaidTotal)}
+              </dd>
+            </div>
+            {totals.grandTotal > 0 ? (
+              <div
+                className="h-1.5 overflow-hidden rounded-full bg-surface-muted"
+                role="progressbar"
+                aria-label="Percentual pago"
+                aria-valuenow={Math.round((totals.paidTotal / totals.grandTotal) * 100)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div
+                  className="h-full rounded-full bg-positive"
+                  style={{ width: `${Math.min(100, (totals.paidTotal / totals.grandTotal) * 100)}%` }}
+                />
+              </div>
+            ) : null}
+          </div>
         </dl>
       </section>
     </div>

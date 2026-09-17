@@ -31,6 +31,16 @@ export interface WorkFilters {
   /** Busca livre em título, imóvel, endereço e proprietário. */
   search?: string | null;
   includeArchived?: boolean;
+  /** Somente arquivadas (aba "Arquivadas"). Tem precedência sobre includeArchived. */
+  onlyArchived?: boolean;
+  /** Previsão de conclusão vencida e obra ainda não concluída/cancelada. */
+  overdue?: boolean;
+}
+
+const OPEN_STATUSES = "(planejada,em_andamento,pausada,aguardando_material,aguardando_prestador)";
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 const WORK_COLUMNS = "*";
@@ -71,7 +81,11 @@ function buildWorksQuery(
     .from("works")
     .select(options.columns ?? WORK_COLUMNS, options.count ? { count: options.count } : undefined);
 
-  if (!filters.includeArchived) query = query.eq("is_archived", false);
+  if (filters.onlyArchived) query = query.eq("is_archived", true);
+  else if (!filters.includeArchived) query = query.eq("is_archived", false);
+  if (filters.overdue) {
+    query = query.lt("expected_at", todayIso()).filter("status", "in", OPEN_STATUSES);
+  }
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.category) query = query.eq("category", filters.category);
   if (filters.priority) query = query.eq("priority", filters.priority);
@@ -171,28 +185,53 @@ export interface WorkDashboardSummary {
   emAndamento: number;
   concluidas: number;
   pausadas: number;
+  atrasadas: number;
   gastoTotalPeriodo: number;
+  aPagar: number;
 }
 
-/** Cards do dashboard. Contagens por status + gasto total no período (entry_date). */
+const EMPTY_SUMMARY: WorkDashboardSummary = {
+  total: 0,
+  emAndamento: 0,
+  concluidas: 0,
+  pausadas: 0,
+  atrasadas: 0,
+  gastoTotalPeriodo: 0,
+  aPagar: 0,
+};
+
+function isOverdue(work: Pick<WorkRow, "status" | "expected_at">, today: string): boolean {
+  return (
+    Boolean(work.expected_at) &&
+    (work.expected_at as string) < today &&
+    work.status !== "concluida" &&
+    work.status !== "cancelada"
+  );
+}
+
+/** Cards do dashboard. Contagens por status + gasto total e a pagar no período (entry_date). */
 export async function getWorkSummary(filters: WorkFilters): Promise<WorkDashboardSummary> {
   const supabase = await createSupabaseServerClient();
 
-  const { data: works, error } = await buildWorksQuery(supabase, filters, { columns: "id, status" });
+  const { data: works, error } = await buildWorksQuery(supabase, filters, {
+    columns: "id, status, expected_at",
+  });
 
   if (error) {
     logServerError("queries.getWorkSummary", error);
-    return { total: 0, emAndamento: 0, concluidas: 0, pausadas: 0, gastoTotalPeriodo: 0 };
+    return EMPTY_SUMMARY;
   }
 
-  const rows = (works ?? []) as unknown as Pick<WorkRow, "id" | "status">[];
+  const rows = (works ?? []) as unknown as Pick<WorkRow, "id" | "status" | "expected_at">[];
   const workIds = rows.map((row) => row.id);
+  const today = todayIso();
 
   let gastoTotalPeriodo = 0;
+  let aPagar = 0;
   if (workIds.length > 0) {
     let entriesQuery = supabase
       .from("work_entries")
-      .select("total_amount")
+      .select("total_amount, is_paid")
       .in("work_id", workIds)
       .is("deleted_at", null);
 
@@ -203,8 +242,14 @@ export async function getWorkSummary(filters: WorkFilters): Promise<WorkDashboar
     if (entriesError) {
       logServerError("queries.getWorkSummary.entries", entriesError);
     } else {
+      const list = entries ?? [];
       gastoTotalPeriodo = roundMoney(
-        (entries ?? []).reduce((total, entry) => total.plus(toDecimal(entry.total_amount)), toDecimal(0)),
+        list.reduce((total, entry) => total.plus(toDecimal(entry.total_amount)), toDecimal(0)),
+      );
+      aPagar = roundMoney(
+        list
+          .filter((entry) => !entry.is_paid)
+          .reduce((total, entry) => total.plus(toDecimal(entry.total_amount)), toDecimal(0)),
       );
     }
   }
@@ -214,18 +259,21 @@ export async function getWorkSummary(filters: WorkFilters): Promise<WorkDashboar
     emAndamento: rows.filter((row) => row.status === "em_andamento").length,
     concluidas: rows.filter((row) => row.status === "concluida").length,
     pausadas: rows.filter((row) => row.status === "pausada").length,
+    atrasadas: rows.filter((row) => isOverdue(row, today)).length,
     gastoTotalPeriodo,
+    aPagar,
   };
 }
 
 export interface WorkAggregate {
   totalAmount: number;
+  paidAmount: number;
   attachmentsCount: number;
 }
 
 /**
- * Total gasto e quantidade de anexos por obra, em duas consultas para a
- * página inteira (nunca uma consulta por linha da tabela).
+ * Total gasto, total pago e quantidade de anexos por obra, em duas consultas
+ * para a página inteira (nunca uma consulta por linha da tabela).
  */
 export async function getWorksAggregates(workIds: string[]): Promise<Map<string, WorkAggregate>> {
   const aggregates = new Map<string, WorkAggregate>();
@@ -235,22 +283,35 @@ export async function getWorksAggregates(workIds: string[]): Promise<Map<string,
 
   const [{ data: entries, error: entriesError }, { data: attachments, error: attachmentsError }] =
     await Promise.all([
-      supabase.from("work_entries").select("work_id, total_amount").in("work_id", workIds).is("deleted_at", null),
+      supabase
+        .from("work_entries")
+        .select("work_id, total_amount, is_paid")
+        .in("work_id", workIds)
+        .is("deleted_at", null),
       supabase.from("work_attachments").select("work_id").in("work_id", workIds).is("deleted_at", null),
     ]);
 
   if (entriesError) logServerError("queries.getWorksAggregates.entries", entriesError);
   if (attachmentsError) logServerError("queries.getWorksAggregates.attachments", attachmentsError);
 
-  for (const workId of workIds) aggregates.set(workId, { totalAmount: 0, attachmentsCount: 0 });
+  for (const workId of workIds) aggregates.set(workId, { totalAmount: 0, paidAmount: 0, attachmentsCount: 0 });
 
-  const totalsByWork = new Map<string, ReturnType<typeof toDecimal>>();
+  const totalsByWork = new Map<string, { total: ReturnType<typeof toDecimal>; paid: ReturnType<typeof toDecimal> }>();
   for (const entry of entries ?? []) {
     const workId = entry.work_id as string;
-    totalsByWork.set(workId, (totalsByWork.get(workId) ?? toDecimal(0)).plus(toDecimal(entry.total_amount)));
+    const current = totalsByWork.get(workId) ?? { total: toDecimal(0), paid: toDecimal(0) };
+    const amount = toDecimal(entry.total_amount);
+    totalsByWork.set(workId, {
+      total: current.total.plus(amount),
+      paid: entry.is_paid ? current.paid.plus(amount) : current.paid,
+    });
   }
-  for (const [workId, total] of totalsByWork) {
-    aggregates.set(workId, { ...aggregates.get(workId)!, totalAmount: roundMoney(total) });
+  for (const [workId, sums] of totalsByWork) {
+    aggregates.set(workId, {
+      ...aggregates.get(workId)!,
+      totalAmount: roundMoney(sums.total),
+      paidAmount: roundMoney(sums.paid),
+    });
   }
 
   for (const attachment of attachments ?? []) {
@@ -294,13 +355,45 @@ export async function getWorkEntryTotals(workId: string): Promise<WorkTotals> {
   const materialsTotal = sumByType("material");
   const servicesTotal = sumByType("servico");
   const otherTotal = sumByType("outro_custo");
+  const paidTotal = roundMoney(
+    entries
+      .filter((entry) => entry.is_paid)
+      .reduce((total, entry) => total.plus(toDecimal(entry.total_amount)), toDecimal(0)),
+  );
+  const grandTotal = roundMoney(toDecimal(materialsTotal).plus(servicesTotal).plus(otherTotal));
 
   return {
     materialsTotal,
     servicesTotal,
     otherTotal,
-    grandTotal: roundMoney(toDecimal(materialsTotal).plus(servicesTotal).plus(otherTotal)),
+    grandTotal,
+    paidTotal,
+    unpaidTotal: roundMoney(toDecimal(grandTotal).minus(paidTotal)),
   };
+}
+
+/** Quantidade de anexos vinculados a cada item (clipe na tabela de custos), em uma consulta. */
+export async function getEntryAttachmentCounts(workId: string): Promise<Record<string, number>> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("work_attachments")
+    .select("work_entry_id")
+    .eq("work_id", workId)
+    .is("deleted_at", null)
+    .not("work_entry_id", "is", null);
+
+  if (error) {
+    logServerError("queries.getEntryAttachmentCounts", error);
+    return {};
+  }
+
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    const entryId = row.work_entry_id as string;
+    counts[entryId] = (counts[entryId] ?? 0) + 1;
+  }
+  return counts;
 }
 
 export async function listWorkAttachments(
@@ -385,6 +478,7 @@ export async function getSignedAttachmentUrl(
 export interface WorkMonthlySpending {
   periodKey: string;
   total: number;
+  paid: number;
 }
 
 /** Gastos por mês (soma de work_entries.total_amount), para o gráfico opcional do dashboard. */
@@ -402,7 +496,7 @@ export async function getWorkMonthlySpending(filters: WorkFilters): Promise<Work
 
   const { data: entries, error: entriesError } = await supabase
     .from("work_entries")
-    .select("entry_date, total_amount")
+    .select("entry_date, total_amount, is_paid")
     .in("work_id", workIds)
     .is("deleted_at", null);
 
@@ -411,14 +505,22 @@ export async function getWorkMonthlySpending(filters: WorkFilters): Promise<Work
     return [];
   }
 
-  const totalsByMonth = new Map<string, ReturnType<typeof toDecimal>>();
+  const byMonth = new Map<string, { total: ReturnType<typeof toDecimal>; paid: ReturnType<typeof toDecimal> }>();
   for (const entry of entries ?? []) {
     const periodKey = String(entry.entry_date).slice(0, 7); // YYYY-MM
-    const current = totalsByMonth.get(periodKey) ?? toDecimal(0);
-    totalsByMonth.set(periodKey, current.plus(toDecimal(entry.total_amount)));
+    const current = byMonth.get(periodKey) ?? { total: toDecimal(0), paid: toDecimal(0) };
+    const amount = toDecimal(entry.total_amount);
+    byMonth.set(periodKey, {
+      total: current.total.plus(amount),
+      paid: entry.is_paid ? current.paid.plus(amount) : current.paid,
+    });
   }
 
-  return Array.from(totalsByMonth.entries())
+  return Array.from(byMonth.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([periodKey, total]) => ({ periodKey, total: roundMoney(total) }));
+    .map(([periodKey, sums]) => ({
+      periodKey,
+      total: roundMoney(sums.total),
+      paid: roundMoney(sums.paid),
+    }));
 }

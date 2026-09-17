@@ -3,6 +3,11 @@ import { NewWorkPage } from "@/features/works/work-pages";
 
 export const metadata: Metadata = { title: "Nova obra" };
 
-export default function ObraNovaPage() {
-  return <NewWorkPage />;
+export default async function ObraNovaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ duplicar?: string }>;
+}) {
+  const { duplicar } = await searchParams;
+  return <NewWorkPage duplicateFrom={duplicar} />;
 }

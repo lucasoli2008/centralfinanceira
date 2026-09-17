@@ -8,6 +8,7 @@ import { WorkActivityTimeline } from "./work-activity-timeline";
 import { WorkEntriesSection } from "./work-entries-section";
 import { WorkGallery } from "./work-gallery";
 import { WorkAttachmentsSection } from "./work-attachments-section";
+import { isPhotoCategory } from "./attachment-files";
 import { formatCurrency } from "@/lib/formatting/number";
 import type { WorkActivityRow, WorkEntryRow, WorkRow } from "@/types/database";
 import type { WorkAttachmentWithUrl, WorkTotals } from "@/lib/works/types";
@@ -19,6 +20,7 @@ export function WorkDetailTabs({
   suppliers,
   activities,
   attachments,
+  attachmentCounts,
 }: {
   work: WorkRow;
   totals: WorkTotals;
@@ -26,9 +28,11 @@ export function WorkDetailTabs({
   suppliers: string[];
   activities: WorkActivityRow[];
   attachments: WorkAttachmentWithUrl[];
+  attachmentCounts: Record<string, number>;
 }) {
-  const photos = attachments.filter((attachment) => attachment.category.startsWith("foto_"));
-  const documents = attachments.filter((attachment) => !attachment.category.startsWith("foto_"));
+  const photos = attachments.filter((attachment) => isPhotoCategory(attachment.category));
+  const documents = attachments.filter((attachment) => !isPhotoCategory(attachment.category));
+  const readOnly = work.is_archived;
 
   return (
     <Tabs defaultValue="visao-geral">
@@ -51,24 +55,44 @@ export function WorkDetailTabs({
       </TabsContent>
 
       <TabsContent value="custos">
-        <WorkEntriesSection workId={work.id} entries={entries} totals={totals} suppliers={suppliers} />
+        <WorkEntriesSection
+          workId={work.id}
+          entries={entries}
+          totals={totals}
+          suppliers={suppliers}
+          attachments={attachments}
+          attachmentCounts={attachmentCounts}
+          readOnly={readOnly}
+        />
       </TabsContent>
 
       <TabsContent value="documentos" className="space-y-8">
-        <WorkGallery workId={work.id} photos={photos} />
-        <WorkAttachmentsSection workId={work.id} documents={documents} entries={entries} />
+        <WorkGallery workId={work.id} photos={photos} entries={entries} readOnly={readOnly} />
+        <WorkAttachmentsSection workId={work.id} documents={documents} entries={entries} readOnly={readOnly} />
       </TabsContent>
 
       <TabsContent value="relatorio">
         <div className="surface-card max-w-md p-5">
           <h2 className="section-title">Relatório completo da obra</h2>
           <p className="mt-2 text-[13px] text-muted">
-            Gera um PDF com identificação, descrição, serviços, materiais, outros custos, resumo
-            financeiro, fotos (antes/durante/depois) e lista de documentos.
+            PDF com identificação, resumo financeiro (pago e a pagar), serviços, materiais e outros
+            custos, fotos antes/durante/depois com legenda, notas fiscais e comprovantes — os PDFs
+            anexados entram como páginas no final.
           </p>
-          <p className="mt-3 text-[13px]">
-            Total geral: <span className="font-semibold tabular">{formatCurrency(totals.grandTotal)}</span>
-          </p>
+          <dl className="mt-3 grid grid-cols-3 gap-2 text-[13px]">
+            <div>
+              <dt className="label-caption">Total</dt>
+              <dd className="font-semibold tabular">{formatCurrency(totals.grandTotal)}</dd>
+            </div>
+            <div>
+              <dt className="label-caption">Fotos</dt>
+              <dd className="font-semibold tabular">{photos.length}</dd>
+            </div>
+            <div>
+              <dt className="label-caption">Documentos</dt>
+              <dd className="font-semibold tabular">{documents.length}</dd>
+            </div>
+          </dl>
           <Button asChild className="mt-4">
             <a href={`/api/obras/${work.id}/relatorio`} target="_blank" rel="noopener noreferrer">
               <FileDown />

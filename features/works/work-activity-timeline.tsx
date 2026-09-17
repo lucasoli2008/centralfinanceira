@@ -1,13 +1,17 @@
 import type * as React from "react";
 import {
+  Archive,
+  ArchiveRestore,
+  BadgeDollarSign,
   CheckCircle2,
   FilePlus2,
   FileText,
   ImagePlus,
   MinusCircle,
   PackagePlus,
+  Pencil,
   PlusCircle,
-  Archive,
+  Trash2,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/formatting/date";
 import type { WorkActivityAction, WorkActivityRow } from "@/types/database";
@@ -16,11 +20,15 @@ const ACTIVITY_ICONS: Record<WorkActivityAction, React.ComponentType<{ className
   obra_criada: PlusCircle,
   status_alterado: FileText,
   item_adicionado: PackagePlus,
+  item_editado: Pencil,
   item_removido: MinusCircle,
+  item_pago: BadgeDollarSign,
   documento_enviado: FilePlus2,
   foto_adicionada: ImagePlus,
+  anexo_removido: Trash2,
   obra_concluida: CheckCircle2,
   obra_arquivada: Archive,
+  obra_reaberta: ArchiveRestore,
 };
 
 export function WorkActivityTimeline({ activities }: { activities: WorkActivityRow[] }) {

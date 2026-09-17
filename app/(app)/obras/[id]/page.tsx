@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Pencil } from "lucide-react";
+import { Copy, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { WorkDetailTabs } from "@/features/works/work-detail-tabs";
 import { WorkDetailActions } from "@/features/works/work-detail-actions";
+import { WorkStatusSelect } from "@/features/works/work-status-select";
 import {
+  getEntryAttachmentCounts,
   getSignedAttachmentUrl,
   getWork,
   getWorkEntryTotals,
@@ -35,12 +37,13 @@ export default async function ObraDetalhePage({ params }: { params: Promise<{ id
 
   if (!work) notFound();
 
-  const [totals, entries, activities, suppliers, attachmentRows] = await Promise.all([
+  const [totals, entries, activities, suppliers, attachmentRows, attachmentCounts] = await Promise.all([
     getWorkEntryTotals(id),
     listWorkEntries(id),
     listWorkActivities(id),
     listRecentSuppliers(),
     listWorkAttachments(id),
+    getEntryAttachmentCounts(id),
   ]);
 
   const attachments: WorkAttachmentWithUrl[] = await Promise.all(
@@ -59,14 +62,29 @@ export default async function ObraDetalhePage({ params }: { params: Promise<{ id
         backLabel="Todas as obras"
         actions={
           <>
-            <Badge tone={WORK_STATUS_TONES[work.status]}>{WORK_STATUS_LABELS[work.status]}</Badge>
+            {work.is_archived ? (
+              <>
+                <Badge tone="neutral">Arquivada</Badge>
+                <Badge tone={WORK_STATUS_TONES[work.status]}>{WORK_STATUS_LABELS[work.status]}</Badge>
+              </>
+            ) : (
+              <WorkStatusSelect workId={id} status={work.status} completedAt={work.completed_at} />
+            )}
             {work.is_archived ? null : (
-              <Button asChild variant="secondary">
-                <Link href={`/obras/${id}/editar`}>
-                  <Pencil />
-                  Editar
-                </Link>
-              </Button>
+              <>
+                <Button asChild variant="secondary">
+                  <Link href={`/obras/${id}/editar`}>
+                    <Pencil />
+                    Editar
+                  </Link>
+                </Button>
+                <Button asChild variant="secondary">
+                  <Link href={`/obras/nova?duplicar=${id}`}>
+                    <Copy />
+                    Duplicar
+                  </Link>
+                </Button>
+              </>
             )}
             <WorkDetailActions workId={id} isArchived={work.is_archived} />
           </>
@@ -80,6 +98,7 @@ export default async function ObraDetalhePage({ params }: { params: Promise<{ id
         suppliers={suppliers}
         activities={activities}
         attachments={attachments}
+        attachmentCounts={attachmentCounts}
       />
     </>
   );

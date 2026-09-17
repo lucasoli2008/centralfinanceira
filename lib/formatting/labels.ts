@@ -162,9 +162,13 @@ export const WORK_ACTIVITY_ACTION_LABELS: Record<WorkActivityAction, string> = {
   obra_criada: "Obra criada",
   status_alterado: "Status alterado",
   item_adicionado: "Item adicionado",
+  item_editado: "Item editado",
   item_removido: "Item removido",
+  item_pago: "Pagamento registrado",
   documento_enviado: "Documento enviado",
   foto_adicionada: "Foto adicionada",
+  anexo_removido: "Anexo removido",
   obra_concluida: "Obra concluída",
   obra_arquivada: "Obra arquivada",
+  obra_reaberta: "Obra reaberta",
 };

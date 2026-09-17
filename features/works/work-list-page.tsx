@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { WorksTable } from "./works-table";
 import { getWorksAggregates, listActiveWorkYears, listWorks, type WorkFilters } from "@/server/queries/works";
 import { resolvePeriod } from "@/lib/period";
-import type { WorkCategory, WorkStatus } from "@/types/database";
+import type { WorkCategory, WorkPriority, WorkStatus } from "@/types/database";
 
 export interface WorkListSearchParams {
   periodo?: string;
@@ -16,6 +16,11 @@ export interface WorkListSearchParams {
   busca?: string;
   status?: string;
   categoria?: string;
+  prioridade?: string;
+  /** "1" → aba Arquivadas (somente obras arquivadas). */
+  arquivadas?: string;
+  /** "1" → só obras com previsão vencida e ainda abertas. */
+  atrasadas?: string;
   pagina?: string;
 }
 
@@ -38,7 +43,10 @@ export function resolveWorkFilters(searchParams: WorkListSearchParams): {
       to: period?.to ?? null,
       status: (searchParams.status as WorkStatus) || null,
       category: (searchParams.categoria as WorkCategory) || null,
+      priority: (searchParams.prioridade as WorkPriority) || null,
       search: searchParams.busca || null,
+      onlyArchived: searchParams.arquivadas === "1",
+      overdue: searchParams.atrasadas === "1",
     },
     periodLabel: period?.label ?? "Todo o período",
   };
@@ -57,7 +65,15 @@ export async function WorksTableSection({ searchParams }: { searchParams: WorkLi
   const aggregates = Object.fromEntries(await getWorksAggregates(rows.map((row) => row.id)));
 
   return (
-    <WorksTable rows={rows} aggregates={aggregates} years={years} page={page} pageSize={PAGE_SIZE} total={total} />
+    <WorksTable
+      rows={rows}
+      aggregates={aggregates}
+      years={years}
+      page={page}
+      pageSize={PAGE_SIZE}
+      total={total}
+      archivedView={Boolean(filters.onlyArchived)}
+    />
   );
 }
 

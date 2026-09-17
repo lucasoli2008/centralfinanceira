@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2 } from "lucide-react";
+import { FileText, Loader2, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox, FormField, Input, NativeSelect, Textarea } from "@/components/ui/field";
@@ -19,19 +19,27 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SupplierAutocomplete } from "./supplier-autocomplete";
-import { saveWorkEntry } from "./actions";
+import { deleteWorkAttachment, saveWorkEntry, uploadWorkAttachment } from "./actions";
+import { ATTACHMENT_ACCEPT, describeFileSize, validateAttachmentFile } from "./attachment-files";
 import {
   WORK_ENTRY_TYPES,
   WORK_ENTRY_UNITS,
   workEntrySchema,
   type WorkEntryFormValues,
 } from "@/lib/validation/work";
-import { WORK_ENTRY_TYPE_LABELS, WORK_ENTRY_UNIT_LABELS } from "@/lib/formatting/labels";
+import {
+  WORK_ATTACHMENT_CATEGORY_LABELS,
+  WORK_ENTRY_TYPE_LABELS,
+  WORK_ENTRY_UNIT_LABELS,
+} from "@/lib/formatting/labels";
+import type { WorkAttachmentCategory, WorkAttachmentRow } from "@/types/database";
 
 const ENTRY_TYPE_OPTIONS = WORK_ENTRY_TYPES.map((value) => ({
   value,
   label: WORK_ENTRY_TYPE_LABELS[value],
 }));
+
+const INVOICE_CATEGORIES: WorkAttachmentCategory[] = ["nota_fiscal", "recibo", "comprovante", "orcamento"];
 
 interface WorkEntryDialogProps {
   open: boolean;
@@ -40,13 +48,20 @@ interface WorkEntryDialogProps {
   suppliers: string[];
   entryId?: string;
   defaultValues?: Partial<WorkEntryFormValues>;
+  /** Anexos já vinculados ao item em edição. */
+  linkedAttachments?: WorkAttachmentRow[];
+  duplicating?: boolean;
+}
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function emptyValues(workId: string): WorkEntryFormValues {
   return {
     workId,
     entryType: "material",
-    entryDate: new Date().toISOString().slice(0, 10),
+    entryDate: today(),
     description: "",
     category: "",
     supplierName: "",
@@ -55,6 +70,8 @@ function emptyValues(workId: string): WorkEntryFormValues {
     unitPrice: undefined as unknown as number,
     totalAmount: 0,
     totalIsManual: false,
+    isPaid: false,
+    paidAt: "",
     notes: "",
   };
 }
@@ -66,10 +83,16 @@ export function WorkEntryDialog({
   suppliers,
   entryId,
   defaultValues,
+  linkedAttachments = [],
+  duplicating = false,
 }: WorkEntryDialogProps) {
   const router = useRouter();
   const isEditing = Boolean(entryId);
   const [pending, setPending] = React.useState(false);
+  const [files, setFiles] = React.useState<File[]>([]);
+  const [invoiceCategory, setInvoiceCategory] = React.useState<WorkAttachmentCategory>("nota_fiscal");
+  const [removedAttachmentIds, setRemovedAttachmentIds] = React.useState<string[]>([]);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const form = useForm<WorkEntryFormValues>({
     resolver: zodResolver(workEntrySchema),
@@ -94,12 +117,37 @@ export function WorkEntryDialog({
     }
   }, [computedTotal, values.totalIsManual, setValue]);
 
+  function onFilesPicked(list: FileList | null) {
+    if (!list) return;
+    const accepted: File[] = [];
+    for (const file of Array.from(list)) {
+      const problem = validateAttachmentFile(file);
+      if (problem) {
+        toast.error(`${file.name}: ${problem}`);
+        continue;
+      }
+      accepted.push(file);
+    }
+    setFiles((current) => [...current, ...accepted]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function removeLinkedAttachment(attachmentId: string) {
+    const result = await deleteWorkAttachment(attachmentId, workId);
+    if (result.status === "error") {
+      toast.error(result.message);
+      return;
+    }
+    setRemovedAttachmentIds((current) => [...current, attachmentId]);
+    toast.success("Anexo removido.");
+  }
+
   async function onSubmit(formValues: WorkEntryFormValues) {
     setPending(true);
     const result = await saveWorkEntry(formValues, entryId);
-    setPending(false);
 
     if (result.status === "error") {
+      setPending(false);
       toast.error(result.message);
       if (result.fieldErrors) {
         for (const [path, message] of Object.entries(result.fieldErrors)) {
@@ -109,7 +157,32 @@ export function WorkEntryDialog({
       return;
     }
 
-    toast.success(isEditing ? "Item atualizado." : "Item adicionado.");
+    let uploaded = 0;
+    let failed = 0;
+    for (const file of files) {
+      const formData = new FormData();
+      formData.set("file", file);
+      formData.set("workId", workId);
+      formData.set("workEntryId", result.data.entryId);
+      formData.set("category", invoiceCategory);
+      const upload = await uploadWorkAttachment(formData);
+      if (upload.status === "ok") uploaded += 1;
+      else {
+        failed += 1;
+        toast.error(`${file.name}: ${upload.message}`);
+      }
+    }
+    setPending(false);
+
+    const base = isEditing ? "Item atualizado." : "Item adicionado.";
+    if (uploaded > 0) {
+      toast.success(`${base} ${uploaded} ${uploaded === 1 ? "anexo enviado" : "anexos enviados"}.`);
+    } else if (failed === 0) {
+      toast.success(base);
+    } else {
+      toast.warning(`${base} Nenhum anexo foi enviado — tente de novo pela aba Fotos e documentos.`);
+    }
+
     onOpenChange(false);
     router.refresh();
   }
@@ -118,11 +191,14 @@ export function WorkEntryDialog({
     toast.error("Revise os campos destacados.");
   }
 
+  const visibleLinked = linkedAttachments.filter((attachment) => !removedAttachmentIds.includes(attachment.id));
+  const title = duplicating ? "Duplicar item" : isEditing ? "Editar item" : "Adicionar item";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Editar item" : "Adicionar item"}</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
             Material, serviço ou outro custo relacionado a esta obra.
           </DialogDescription>
@@ -265,16 +341,117 @@ export function WorkEntryDialog({
               />
               Ajustar total manualmente (em vez de quantidade × valor unitário)
             </label>
-
-            <FormField
-              label="Observações"
-              htmlFor="entry-notes"
-              className="sm:col-span-2"
-              error={errors.notes?.message}
-            >
-              <Textarea id="entry-notes" rows={2} {...register("notes")} />
-            </FormField>
           </div>
+
+          {/* Pagamento ------------------------------------------------------ */}
+          <div className="rounded-control border border-border bg-surface-sunken p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-[13px] font-medium">
+                <Checkbox
+                  checked={Boolean(values.isPaid)}
+                  onChange={(event) => {
+                    const checked = event.target.checked;
+                    setValue("isPaid", checked, { shouldDirty: true, shouldValidate: true });
+                    if (checked && !values.paidAt) setValue("paidAt", today(), { shouldDirty: true });
+                    if (!checked) setValue("paidAt", "", { shouldDirty: true });
+                  }}
+                />
+                Pago
+              </label>
+              {values.isPaid ? (
+                <FormField label="Data do pagamento" htmlFor="entry-paid-at" error={errors.paidAt?.message} className="w-44">
+                  <Input
+                    id="entry-paid-at"
+                    type="date"
+                    {...register("paidAt", { setValueAs: (value: string) => (value === "" ? null : value) })}
+                  />
+                </FormField>
+              ) : (
+                <span className="text-[12px] text-subtle">Marque quando o pagamento for feito.</span>
+              )}
+            </div>
+          </div>
+
+          {/* Nota fiscal / comprovante ------------------------------------- */}
+          <div className="rounded-control border border-dashed border-border-strong p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-[13px] font-medium">
+                <Paperclip className="size-3.5" />
+                Nota fiscal / comprovante
+              </p>
+              <div className="flex items-center gap-2">
+                <NativeSelect
+                  aria-label="Categoria do anexo"
+                  className="h-8 text-[12.5px]"
+                  value={invoiceCategory}
+                  onChange={(event) => setInvoiceCategory(event.target.value as WorkAttachmentCategory)}
+                >
+                  {INVOICE_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {WORK_ATTACHMENT_CATEGORY_LABELS[category]}
+                    </option>
+                  ))}
+                </NativeSelect>
+                <Button type="button" size="sm" variant="secondary" onClick={() => fileInputRef.current?.click()}>
+                  Escolher arquivos
+                </Button>
+              </div>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={ATTACHMENT_ACCEPT}
+              className="sr-only"
+              onChange={(event) => onFilesPicked(event.target.files)}
+            />
+            <p className="mt-1.5 text-[12px] text-subtle">PDF, JPG, PNG ou WEBP — até 10 MB cada. Os arquivos ficam vinculados a este item.</p>
+
+            {visibleLinked.length > 0 || files.length > 0 ? (
+              <ul className="mt-3 space-y-1.5">
+                {visibleLinked.map((attachment) => (
+                  <li key={attachment.id} className="flex items-center justify-between gap-2 text-[12.5px]">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <FileText className="size-3.5 shrink-0 text-subtle" />
+                      <span className="truncate">{attachment.file_name}</span>
+                      <span className="shrink-0 text-subtle">· {WORK_ATTACHMENT_CATEGORY_LABELS[attachment.category]}</span>
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remover ${attachment.file_name}`}
+                      onClick={() => removeLinkedAttachment(attachment.id)}
+                    >
+                      <X />
+                    </Button>
+                  </li>
+                ))}
+                {files.map((file, index) => (
+                  <li key={`${file.name}-${index}`} className="flex items-center justify-between gap-2 text-[12.5px]">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <Paperclip className="size-3.5 shrink-0 text-accent" />
+                      <span className="truncate">{file.name}</span>
+                      <span className="shrink-0 text-subtle">· {describeFileSize(file.size)} · novo</span>
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Descartar ${file.name}`}
+                      onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}
+                    >
+                      <X />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+
+          <FormField label="Observações" htmlFor="entry-notes" error={errors.notes?.message}>
+            <Textarea id="entry-notes" rows={2} {...register("notes")} />
+          </FormField>
 
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>

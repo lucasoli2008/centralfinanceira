@@ -234,7 +234,19 @@ app_log_work_activity(work_id, action, description) -> helper interno de histór
 app_register_work_attachment(payload, metadata)    -> registra a linha após o upload físico
 app_delete_work_attachment(attachment_id, metadata) -> soft delete; retorna o storage_path
                                                         para a Server Action remover o objeto físico
+app_set_work_entry_paid(work_entry_id, is_paid, paid_at, metadata) -> marca/desmarca pago (0009)
+app_update_work_status(work_id, status, metadata)  -> troca só o status; "concluida" preenche
+                                                        completed_at quando vazio (0009)
 ```
+
+### Pagamento dos itens (`0009_works_payments.sql`)
+
+`work_entries.is_paid boolean` + `paid_at date`, com `work_entries_paid_ck` (pago exige data; a RPC
+usa a data de hoje quando não informada). **Não é contas a pagar**: não há vencimento, cobrança nem
+baixa bancária — é só a marcação de que o item foi quitado, para o resumo Pago × A pagar da obra,
+do dashboard e do PDF. A mesma migração amplia `work_activities.action` com `item_editado`,
+`item_pago`, `anexo_removido` e `obra_reaberta`, e passa a registrar edição de item, pagamento,
+remoção de anexo e reabertura no histórico.
 
 Reaproveita os mesmos códigos de erro (`CF002` campo obrigatório/inválido, `CF005` registro
 inexistente ou de outra organização).
