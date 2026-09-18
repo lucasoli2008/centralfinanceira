@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import sharp from "sharp";
 import { PDFDocument } from "pdf-lib";
 import { renderWorkReport, renderWorksListReport, type WorkReportData } from "@/server/reports/work-pdf";
 import { appendPdfAttachments, toPdfImage } from "@/server/reports/work-attachments";
+import { makePng } from "../helpers/fake-images";
 import type { WorkActivityRow, WorkEntryRow, WorkRow } from "@/types/database";
 
 const branding = {
@@ -78,8 +78,8 @@ const activities: WorkActivityRow[] = [
 ];
 
 async function fakePhoto(color: { r: number; g: number; b: number }) {
-  const buffer = await sharp({ create: { width: 640, height: 480, channels: 3, background: color } }).jpeg().toBuffer();
-  const image = await toPdfImage(buffer, "image/jpeg");
+  const buffer = makePng(640, 480, [color.r, color.g, color.b]);
+  const image = await toPdfImage(buffer, "image/png");
   if (!image) throw new Error("imagem de teste inválida");
   return image;
 }

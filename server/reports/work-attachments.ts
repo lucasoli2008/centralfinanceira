@@ -1,14 +1,10 @@
 import "server-only";
 
-import sharp from "sharp";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logServerError } from "@/lib/errors";
 
 const BUCKET = "work-attachments";
-
-/** Largura máxima das imagens embutidas no PDF; acima disso o arquivo só cresce sem ganho visual. */
-const MAX_IMAGE_WIDTH = 1400;
 
 /** Limite de páginas de anexos coladas ao final do relatório (proteção contra PDFs gigantes). */
 export const MAX_APPENDIX_PAGES = 40;
@@ -17,6 +13,9 @@ export interface PdfImage {
   data: Buffer;
   format: "jpg" | "png";
 }
+
+const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff]);
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 /** Baixa o objeto do Storage com a sessão do usuário (RLS do bucket continua valendo). */
 export async function downloadAttachment(storagePath: string): Promise<Buffer | null> {
@@ -32,24 +31,23 @@ export async function downloadAttachment(storagePath: string): Promise<Buffer | 
 }
 
 /**
- * Normaliza uma imagem para o `@react-pdf/renderer`, que só aceita JPG/PNG:
- * converte WEBP, aplica a orientação EXIF (fotos de celular) e reduz o tamanho.
- * Se o `sharp` falhar, devolve o original quando já for JPG/PNG.
+ * Prepara uma imagem para o `@react-pdf/renderer`, que só decodifica JPEG e
+ * PNG nativamente — sem depender de um binário nativo de imagem (ex.: sharp),
+ * que a Vercel remove do pacote de funções serverless que não sejam o próprio
+ * otimizador de imagem do Next.js. Por isso não há redimensionamento nem
+ * correção de orientação EXIF aqui: só passa adiante o que o renderer já
+ * sabe ler, validando pelos bytes mágicos do formato (não confia só no
+ * `mime_type` salvo no banco). WEBP (e qualquer outro formato) não é
+ * suportado pelo renderer e é omitido do PDF.
  */
 export async function toPdfImage(buffer: Buffer, mimeType: string): Promise<PdfImage | null> {
-  try {
-    const data = await sharp(buffer)
-      .rotate()
-      .resize({ width: MAX_IMAGE_WIDTH, withoutEnlargement: true })
-      .jpeg({ quality: 82, mozjpeg: true })
-      .toBuffer();
-    return { data, format: "jpg" };
-  } catch (error) {
-    logServerError("reports.toPdfImage", error);
-    if (mimeType === "image/jpeg") return { data: buffer, format: "jpg" };
-    if (mimeType === "image/png") return { data: buffer, format: "png" };
-    return null;
+  if (mimeType === "image/jpeg" && buffer.subarray(0, 3).equals(JPEG_MAGIC)) {
+    return { data: buffer, format: "jpg" };
   }
+  if (mimeType === "image/png" && buffer.subarray(0, 8).equals(PNG_MAGIC)) {
+    return { data: buffer, format: "png" };
+  }
+  return null;
 }
 
 export interface AppendixSource {

@@ -1,16 +1,7 @@
 import { describe, expect, it } from "vitest";
-import sharp from "sharp";
 import { PDFDocument } from "pdf-lib";
 import { appendPdfAttachments, toPdfImage } from "@/server/reports/work-attachments";
-
-async function makeImage(format: "webp" | "png" | "jpeg", width = 40, height = 20): Promise<Buffer> {
-  const pipeline = sharp({
-    create: { width, height, channels: 3, background: { r: 200, g: 40, b: 40 } },
-  });
-  if (format === "webp") return pipeline.webp().toBuffer();
-  if (format === "png") return pipeline.png().toBuffer();
-  return pipeline.jpeg().toBuffer();
-}
+import { makeFakeJpegBytes, makePng } from "../helpers/fake-images";
 
 async function makePdf(pages: number): Promise<Buffer> {
   const document = await PDFDocument.create();
@@ -19,26 +10,28 @@ async function makePdf(pages: number): Promise<Buffer> {
 }
 
 describe("toPdfImage", () => {
-  it("converte WEBP (não suportado pelo react-pdf) em JPG", async () => {
-    const result = await toPdfImage(await makeImage("webp"), "image/webp");
+  it("passa adiante um PNG válido sem alterar os bytes", async () => {
+    const png = makePng(40, 20);
+    const result = await toPdfImage(png, "image/png");
+    expect(result?.format).toBe("png");
+    expect(result?.data).toBe(png);
+  });
+
+  it("passa adiante um JPEG válido (checado pelos bytes mágicos) sem alterar os bytes", async () => {
+    const jpeg = makeFakeJpegBytes();
+    const result = await toPdfImage(jpeg, "image/jpeg");
     expect(result?.format).toBe("jpg");
-    const meta = await sharp(result!.data).metadata();
-    expect(meta.format).toBe("jpeg");
-    expect(meta.width).toBe(40);
+    expect(result?.data).toBe(jpeg);
   });
 
-  it("reduz imagens largas sem ampliar as pequenas", async () => {
-    const wide = await toPdfImage(await makeImage("jpeg", 3000, 1000), "image/jpeg");
-    const wideMeta = await sharp(wide!.data).metadata();
-    expect(wideMeta.width).toBe(1400);
-
-    const small = await toPdfImage(await makeImage("png", 100, 50), "image/png");
-    const smallMeta = await sharp(small!.data).metadata();
-    expect(smallMeta.width).toBe(100);
+  it("devolve null para WEBP — o @react-pdf/renderer não decodifica esse formato", async () => {
+    const png = makePng(10, 10);
+    expect(await toPdfImage(png, "image/webp")).toBeNull();
   });
 
-  it("devolve null para bytes que não são imagem", async () => {
-    expect(await toPdfImage(Buffer.from("isto não é uma imagem"), "image/webp")).toBeNull();
+  it("devolve null quando os bytes não batem com o mime_type declarado", async () => {
+    expect(await toPdfImage(Buffer.from("isto não é uma imagem"), "image/jpeg")).toBeNull();
+    expect(await toPdfImage(Buffer.from("isto não é uma imagem"), "image/png")).toBeNull();
   });
 });
 
