@@ -17,6 +17,7 @@ import { MobileNav, type ShellIdentity } from "./sidebar";
 /** Rótulo da seção atual, para o usuário sempre saber onde está. */
 const SECTION_LABELS: { prefix: string; label: string }[] = [
   { prefix: "/dashboard", label: "Dashboard" },
+  { prefix: "/financeiro", label: "Controle Financeiro" },
   { prefix: "/vendas", label: "Vendas" },
   { prefix: "/locacoes", label: "Locações" },
   { prefix: "/corretores", label: "Corretores" },

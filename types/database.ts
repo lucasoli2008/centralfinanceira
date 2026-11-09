@@ -432,3 +432,267 @@ export interface WorkActivityRow {
   created_by: string | null;
   created_at: string;
 }
+
+// -----------------------------------------------------------------------------
+// Controle Financeiro (0010_finance_core.sql)
+// -----------------------------------------------------------------------------
+
+export type FinanceRole = "admin" | "financeiro" | "gestor" | "consulta" | "sem_acesso";
+export type FinAccountKind = "checking" | "savings" | "cash" | "digital" | "investment";
+export type FinNature =
+  | "own_revenue"
+  | "other_revenue"
+  | "deduction"
+  | "direct_cost"
+  | "operating_expense"
+  | "other_expense"
+  | "third_party"
+  | "deposit"
+  | "equity";
+export type FinCostBehavior = "fixed" | "variable";
+export type FinCounterpartyKind =
+  | "supplier"
+  | "client"
+  | "owner"
+  | "tenant"
+  | "broker"
+  | "partner"
+  | "government"
+  | "bank"
+  | "other";
+export type FinEntryKind = "income" | "expense" | "transfer" | "adjustment";
+export type FinEntryStatus = "forecast" | "open" | "partial" | "settled" | "cancelled";
+export type FinPaymentMethod =
+  | "pix"
+  | "ted"
+  | "boleto"
+  | "cartao_credito"
+  | "cartao_debito"
+  | "dinheiro"
+  | "cheque"
+  | "debito_automatico"
+  | "outro";
+export type FinEntryOrigin = "manual" | "opening_balance" | "commission" | "rental" | "recurrence" | "import";
+export type FinOperationKind = "rental_collection" | "commission_receipt";
+export type FinRegime = "caixa" | "competencia";
+
+export interface FinAccountRow {
+  id: string;
+  organization_id: string;
+  name: string;
+  kind: FinAccountKind;
+  bank_name: string | null;
+  branch: string | null;
+  account_number: string | null;
+  opening_balance: number;
+  opening_date: string;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FinCategoryRow {
+  id: string;
+  organization_id: string;
+  parent_id: string | null;
+  name: string;
+  nature: FinNature;
+  cost_behavior: FinCostBehavior | null;
+  system_key: string | null;
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface FinCostCenterRow {
+  id: string;
+  organization_id: string;
+  name: string;
+  is_active: boolean;
+}
+
+export interface FinCounterpartyRow {
+  id: string;
+  organization_id: string;
+  name: string;
+  kind: FinCounterpartyKind;
+  document_number: string | null;
+  email: string | null;
+  phone: string | null;
+  broker_id: string | null;
+  notes: string | null;
+  is_active: boolean;
+}
+
+export interface FinPropertyRow {
+  id: string;
+  organization_id: string;
+  label: string;
+  address: string | null;
+  owner_counterparty_id: string | null;
+  admin_fee_rate: number | null;
+  is_active: boolean;
+  notes: string | null;
+}
+
+export interface FinOperationRow {
+  id: string;
+  organization_id: string;
+  kind: FinOperationKind;
+  description: string;
+  property_id: string | null;
+  counterparty_id: string | null;
+  commission_entry_id: string | null;
+  reference_date: string;
+  gross_amount: number;
+  own_amount: number;
+  third_party_amount: number;
+  notes: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+  created_at: string;
+}
+
+export interface FinEntryDetailRow {
+  id: string;
+  organization_id: string;
+  kind: FinEntryKind;
+  description: string;
+  amount: number;
+  settled_amount: number;
+  remaining_amount: number;
+  status: FinEntryStatus;
+  is_forecast: boolean;
+  category_id: string | null;
+  category_name: string | null;
+  nature: FinNature | null;
+  category_parent_id: string | null;
+  category_parent_name: string | null;
+  account_id: string | null;
+  account_name: string | null;
+  transfer_account_id: string | null;
+  transfer_account_name: string | null;
+  adjustment_direction: "increase" | "decrease" | null;
+  counterparty_id: string | null;
+  counterparty_name: string | null;
+  cost_center_id: string | null;
+  cost_center_name: string | null;
+  property_id: string | null;
+  property_label: string | null;
+  operation_id: string | null;
+  operation_kind: FinOperationKind | null;
+  payment_method: FinPaymentMethod | null;
+  competence_date: string;
+  due_date: string | null;
+  reference_date: string;
+  last_settled_on: string | null;
+  is_overdue: boolean;
+  document_number: string | null;
+  notes: string | null;
+  origin: FinEntryOrigin;
+  installment_group_id: string | null;
+  installment_number: number | null;
+  installment_count: number | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  attachments_count: number;
+}
+
+export interface FinSettlementRow {
+  id: string;
+  organization_id: string;
+  entry_id: string;
+  account_id: string;
+  settled_on: string;
+  amount: number;
+  payment_method: FinPaymentMethod | null;
+  notes: string | null;
+  reversed_at: string | null;
+  reversal_reason: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface FinAttachmentRow {
+  id: string;
+  organization_id: string;
+  entry_id: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  file_size_bytes: number;
+  description: string | null;
+  uploaded_by: string | null;
+  created_at: string;
+  deleted_at: string | null;
+}
+
+export interface FinSummaryRow {
+  cash_balance: number;
+  cash_in: number;
+  cash_out: number;
+  own_revenue: number;
+  other_revenue: number;
+  deductions: number;
+  direct_costs: number;
+  operating_expenses: number;
+  other_expenses: number;
+  net_result: number;
+  partner_withdrawals: number;
+  receivables_open: number;
+  receivables_overdue: number;
+  payables_open: number;
+  payables_overdue: number;
+  third_party_obligations: number;
+  deposits_held: number;
+  broker_payouts_pending: number;
+  commissions_not_in_cash: number;
+  commissions_not_in_cash_count: number;
+  own_available: number;
+  forecast_30_balance: number;
+}
+
+export interface FinMonthlyRow {
+  period_key: string;
+  year: number;
+  month: number;
+  revenue: number;
+  expenses: number;
+  result: number;
+  cash_in: number;
+  cash_out: number;
+  closing_balance: number;
+  planned_in: number;
+  planned_out: number;
+}
+
+export interface FinCategoryTotalRow {
+  category_id: string;
+  category_name: string;
+  group_name: string;
+  nature: FinNature;
+  total: number;
+  items_count: number;
+}
+
+export interface FinAccountBalanceRow {
+  account_id: string;
+  name: string;
+  kind: FinAccountKind;
+  is_active: boolean;
+  balance: number;
+}
+
+export interface FinPropertyResultRow {
+  property_id: string;
+  label: string;
+  rent_collected: number;
+  own_revenue: number;
+  owner_transferred: number;
+  owner_pending: number;
+  direct_expenses: number;
+  result: number;
+}

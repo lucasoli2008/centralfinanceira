@@ -9,6 +9,8 @@ import type {
   OrganizationSettingsRow,
 } from "@/types/database";
 import type { MemberRole } from "@/lib/finance/types";
+import type { FinanceRole } from "@/types/database";
+import { financeCan, type FinanceAction } from "@/lib/finance/permissions";
 
 export interface AppUser {
   id: string;
@@ -23,6 +25,8 @@ export interface AppContext {
   role: MemberRole;
   status: MemberStatus;
   isOwner: boolean;
+  /** Perfil no Controle Financeiro (o proprietário é sempre administrador). */
+  financeRole: FinanceRole;
 }
 
 /**
@@ -41,7 +45,7 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
   const { data: membership } = await supabase
     .from("organization_members")
     .select(
-      `role, status,
+      `id, role, status,
        organizations:organization_id (
          id, name, legal_name, document_number, logo_url, accent_color,
          timezone, currency, locale, created_at, updated_at
@@ -70,6 +74,20 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
 
   if (profile && profile.is_active === false) return null;
 
+  // Consulta separada: se a migração do financeiro ainda não foi aplicada, a
+  // coluna não existe e o restante do sistema continua funcionando.
+  let financeRole: FinanceRole = "sem_acesso";
+  if (membership.role === "owner") {
+    financeRole = "admin";
+  } else {
+    const { data: financeRow, error: financeError } = await supabase
+      .from("organization_members")
+      .select("finance_role")
+      .eq("id", membership.id as string)
+      .maybeSingle();
+    if (!financeError && financeRow?.finance_role) financeRole = financeRow.finance_role as FinanceRole;
+  }
+
   return {
     user: {
       id: user.id,
@@ -81,6 +99,7 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
     role: membership.role as MemberRole,
     status: membership.status as MemberStatus,
     isOwner: membership.role === "owner",
+    financeRole,
   };
 });
 
@@ -88,6 +107,19 @@ export const getAppContext = cache(async (): Promise<AppContext | null> => {
 export async function requireAppContext(): Promise<AppContext> {
   const context = await getAppContext();
   if (!context) redirect("/login");
+  return context;
+}
+
+/**
+ * Contexto com permissão no Controle Financeiro. Sem permissão de leitura,
+ * redireciona; sem a permissão pedida, lança erro (a página de erro trata).
+ */
+export async function requireFinance(action: FinanceAction = "view"): Promise<AppContext> {
+  const context = await requireAppContext();
+  if (!financeCan(context.financeRole, "view")) redirect("/dashboard");
+  if (!financeCan(context.financeRole, action)) {
+    throw new Error("Você não tem permissão para esta operação no Controle Financeiro.");
+  }
   return context;
 }
 

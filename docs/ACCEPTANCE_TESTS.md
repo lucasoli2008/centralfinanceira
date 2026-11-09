@@ -138,3 +138,22 @@ real do projeto Supabase de teste.
 | Testes e build passando | `npm run test` e `npm run build` |
 | Sem segredos no código | `.env*` ignorado; service role só no servidor |
 | Pronto para Vercel | `docs/DEPLOYMENT.md` com checklist |
+
+---
+
+## Controle Financeiro (`tests/db/finance.spec.ts`)
+
+| # | Cenário | Esperado | Status |
+|---|---|---|---|
+| 1 | Aluguel 10.000, taxa 1.000 | caixa +10.000; receita 1.000; repasse 9.000 | automatizado |
+| 2 | Comissão de venda 500.000 a 6%, corretor 40% | caixa +30.000; receita 18.000; repasses 12.000; duplicidade bloqueada | automatizado |
+| 3 | Despesa a pagar baixada parcialmente | status parcial, saldo restante correto | automatizado |
+| 4 | Transferência entre contas | saldos mudam, resultado não | automatizado |
+| 5 | Parcelamento 1.000 em 3 | 333,33 / 333,33 / 333,34 | automatizado |
+| 6 | Estorno de baixa e cancelamento | lote espelho, motivo obrigatório | automatizado |
+| 7 | Permissões | consulta lê e não escreve; sem_acesso não lê; outra org não vê | automatizado |
+| 8 | Insert direto em `fin_postings` | bloqueado por RLS | automatizado |
+| 9 | Coerência | soma mensal = resumo; categorias = receita própria; caixa = soma do razão | automatizado |
+| 10 | Conciliação bancária por arquivo | Fase 2 | pendente |
+| 11 | Fechamento mensal bloqueia lançamentos | Fase 3 | pendente |
+| 12 | Relatórios PDF/Excel batem com a tela | Fase 3 | pendente |

@@ -13,6 +13,7 @@ import {
   History,
   LayoutDashboard,
   KeyRound,
+  Landmark,
   LogOut,
   Menu,
   Settings,
@@ -36,6 +37,11 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }
+
+const FINANCE_GROUP: { label: string | null; items: NavItem[] } = {
+  label: "Financeiro",
+  items: [{ href: "/financeiro", label: "Controle Financeiro", icon: Landmark }],
+};
 
 const NAV_GROUPS: { label: string | null; items: NavItem[] }[] = [
   {
@@ -78,6 +84,8 @@ export interface ShellIdentity {
   userName: string;
   userEmail: string | null;
   roleLabel: string;
+  /** Mostra o Controle Financeiro (o perfil financeiro permite leitura). */
+  showFinance: boolean;
   onSignOut: () => void;
 }
 
@@ -130,10 +138,13 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
   );
 }
 
-function Navigation({ pathname }: { pathname: string }) {
+function Navigation({ pathname, showFinance }: { pathname: string; showFinance: boolean }) {
+  // O Controle Financeiro entra logo depois do Dashboard, só para quem tem acesso.
+  const groups = showFinance ? [NAV_GROUPS[0], FINANCE_GROUP, ...NAV_GROUPS.slice(1)] : NAV_GROUPS;
+
   return (
     <nav className="flex-1 space-y-4 overflow-y-auto px-2.5 pb-4" aria-label="Navegação principal">
-      {NAV_GROUPS.map((group, index) => (
+      {groups.map((group, index) => (
         <div key={group.label ?? `group-${index}`}>
           {group.label ? <p className="label-overline px-2.5 pb-1.5">{group.label}</p> : null}
           <ul className="space-y-0.5">
@@ -149,7 +160,7 @@ function Navigation({ pathname }: { pathname: string }) {
   );
 }
 
-function UserFooter({ userName, userEmail, roleLabel, onSignOut }: Omit<ShellIdentity, "organizationName" | "logoUrl">) {
+function UserFooter({ userName, userEmail, roleLabel, onSignOut }: Omit<ShellIdentity, "organizationName" | "logoUrl" | "showFinance">) {
   return (
     <div className="border-t border-border p-2.5">
       <DropdownMenu>
@@ -205,7 +216,7 @@ export function Sidebar(identity: ShellIdentity) {
   return (
     <aside className="sticky top-0 hidden h-screen w-[236px] shrink-0 flex-col border-r border-border bg-surface lg:flex">
       <Brand organizationName={identity.organizationName} logoUrl={identity.logoUrl} />
-      <Navigation pathname={pathname} />
+      <Navigation pathname={pathname} showFinance={identity.showFinance} />
       <UserFooter
         userName={identity.userName}
         userEmail={identity.userEmail}
@@ -267,7 +278,7 @@ export function MobileNav(identity: ShellIdentity) {
               <X className="size-4" />
             </button>
             <Brand organizationName={identity.organizationName} logoUrl={identity.logoUrl} />
-            <Navigation pathname={pathname} />
+            <Navigation pathname={pathname} showFinance={identity.showFinance} />
             <UserFooter
               userName={identity.userName}
               userEmail={identity.userEmail}

@@ -170,3 +170,14 @@ Prioridade desktop → tablet → celular, sem esconder ações importantes:
 
 Relatórios oficiais são PDFs gerados no servidor. Ainda assim, `@media print` limpa fundos, remove
 sombras e evita quebra dentro de cards para a visão mensal.
+
+---
+
+## Controle Financeiro
+
+- **Sheet** (`components/ui/sheet.tsx`): gaveta lateral sobre Radix Dialog para criar/ver lançamentos
+  sem sair da lista; animação `--animate-sheet-in`.
+- Cores nos gráficos: entradas em `info` (azul), saídas em cinza neutro, resultado em verde/vermelho
+  semântico. O vermelho da marca **não** representa saída nem prejuízo.
+- Dinheiro de terceiros sempre aparece rotulado ("a repassar", "de terceiros"), nunca somado à receita.
+- Navegação interna por abas (`features/finance/finance-nav.tsx`); filtros na URL.

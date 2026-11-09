@@ -148,3 +148,70 @@ Por corretor, dentro do período filtrado:
 
 A interface deixa explícito que volume e comissão bruta referem-se a **operações em que o
 corretor participou** e não são receita individual dele.
+
+---
+
+## Controle Financeiro (`/financeiro`, migração 0010)
+
+### Livro-razão gerencial
+
+Cada fato financeiro gera um **lote** (`fin_ledger_batches`) de **partidas** (`fin_postings`) com
+valor assinado (+ débito, − crédito). Um trigger diferido garante soma zero por lote; outro torna as
+partidas imutáveis. Estorno = lote espelho na data original (`reverses_batch_id`).
+
+Baldes: `cash` (por conta), `receivable`, `payable`, `revenue`, `expense`, `third_party`, `deposit`,
+`equity`, `opening`.
+
+| Fato | Partidas |
+|---|---|
+| Reconhecimento de entrada (competência) | Dr a receber / Cr balde da natureza |
+| Reconhecimento de saída (competência) | Dr balde da natureza / Cr a pagar |
+| Baixa de entrada | Dr caixa(conta) / Cr a receber |
+| Baixa de saída | Dr a pagar / Cr caixa(conta) |
+| Transferência | Dr caixa(destino) / Cr caixa(origem) — sem efeito no resultado |
+| Ajuste de saldo | caixa ± contra `opening` — justificativa obrigatória (10+) |
+| Saldo inicial da conta | caixa contra `opening` |
+
+Previsões (`is_forecast`) e cancelados **não** geram partidas.
+
+### Naturezas das categorias
+
+| Natureza | Direção | Entra no resultado? |
+|---|---|---|
+| `own_revenue` receita própria | entrada | sim (+) |
+| `other_revenue` outras receitas | entrada | sim (+) |
+| `deduction` deduções/impostos | saída | sim (−) |
+| `direct_cost` custos diretos | saída | sim (−) |
+| `operating_expense` despesas operacionais | saída | sim (−) |
+| `other_expense` outras despesas | saída | sim (−) |
+| `third_party` valores de terceiros | ambas | **não** — obrigação |
+| `deposit` cauções | ambas | **não** — obrigação |
+| `equity` sócios/aportes/retiradas | ambas | **não** |
+
+### Regimes
+
+- **Competência**: valor do título na `competence_date`.
+- **Caixa**: baixas ativas pela `settled_on`.
+
+Ambos vêm de `fin_pl_items`; o sinal vem de `fin_result_sign`.
+
+### Operações imobiliárias
+
+- **Aluguel recebido** (`app_fin_register_rental_collection`): entrada bruta no caixa; taxa de
+  administração → receita própria; diferença → obrigação de repasse ao proprietário (a pagar).
+  Ex.: 10.000 com taxa 1.000 → caixa +10.000; receita 1.000; a repassar 9.000.
+- **Comissão no caixa** (`app_fin_register_commission_receipt`): a partir de um lançamento de
+  comissão; bruta no caixa, receita líquida da imobiliária como receita própria, repasses aos
+  corretores como obrigações. Duplicidade bloqueada (índice único por `commission_entry_id`).
+  Ex.: venda 500.000 a 6% com 40% ao corretor → caixa +30.000; receita 18.000; repasses 12.000.
+
+### Indicadores
+
+- **Saldo em contas** = soma do balde `cash`.
+- **Disponível da imobiliária** = saldo em contas − obrigações com terceiros − cauções.
+- **Previsão 30 dias** = saldo + a receber − a pagar com vencimento até hoje + 30 (inclui previsões).
+
+### Parcelamento
+
+1 a 60 parcelas; valor = total ÷ n arredondado; o resto vai para a última (1.000 em 3 →
+333,33 / 333,33 / 333,34).

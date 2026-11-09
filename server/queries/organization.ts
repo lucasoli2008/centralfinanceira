@@ -2,7 +2,7 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logServerError } from "@/lib/errors";
-import type { AuditLogRow, EntryImportRow, MemberStatus } from "@/types/database";
+import type { AuditLogRow, EntryImportRow, FinanceRole, MemberStatus } from "@/types/database";
 import type { MemberRole } from "@/lib/finance/types";
 
 export interface MemberSummary {
@@ -13,6 +13,10 @@ export interface MemberSummary {
   fullName: string;
   isActive: boolean;
   createdAt: string;
+  /** Perfil no Controle Financeiro (proprietário é sempre administrador). */
+  financeRole: FinanceRole;
+  /** Falso quando a migração do financeiro ainda não foi aplicada. */
+  financeAvailable: boolean;
 }
 
 export async function listMembers(): Promise<MemberSummary[]> {
@@ -28,6 +32,13 @@ export async function listMembers(): Promise<MemberSummary[]> {
     return [];
   }
 
+  // Perfil financeiro em consulta à parte: tolera banco ainda sem a migração 0010.
+  const { data: financeRows } = await supabase.from("organization_members").select("id, finance_role");
+  const financeRoleById = new Map<string, FinanceRole>(
+    (financeRows ?? []).map((row) => [row.id as string, (row.finance_role as FinanceRole | null) ?? "sem_acesso"]),
+  );
+  const financeAvailable = Boolean(financeRows);
+
   return (data ?? []).map((row) => {
     const profile = row.profiles as unknown as {
       full_name: string | null;
@@ -41,6 +52,8 @@ export async function listMembers(): Promise<MemberSummary[]> {
       fullName: profile?.full_name ?? "—",
       isActive: profile?.is_active ?? true,
       createdAt: row.created_at as string,
+      financeRole: row.role === "owner" ? "admin" : (financeRoleById.get(row.id as string) ?? "sem_acesso"),
+      financeAvailable,
     };
   });
 }

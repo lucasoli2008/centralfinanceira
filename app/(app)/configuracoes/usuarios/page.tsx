@@ -15,6 +15,11 @@ export default async function ConfiguracoesUsuariosPage() {
         Administradores têm acesso completo aos lançamentos, corretores e relatórios. Somente o
         proprietário gerencia outros administradores.
       </p>
+      <p className="mb-4 text-[13px] text-muted">
+        O acesso ao <strong className="text-foreground">Controle Financeiro</strong> é separado: Administrador e Financeiro
+        lançam e baixam; Gestor consulta e fecha meses; Consulta só lê; Sem acesso não vê o módulo. A permissão é verificada
+        no banco de dados, não apenas na tela.
+      </p>
       <MembersTable members={members} currentUserId={context.user.id} isOwner={context.isOwner} />
     </div>
   );

@@ -5,6 +5,16 @@
 
 import type { AmountMode, ClosingStatus, EntryType, MemberRole, PropertyType } from "@/lib/finance/types";
 import type {
+  FinAccountKind,
+  FinanceRole,
+  FinCounterpartyKind,
+  FinEntryKind,
+  FinEntryOrigin,
+  FinEntryStatus,
+  FinNature,
+  FinOperationKind,
+  FinPaymentMethod,
+  FinRegime,
   WorkActivityAction,
   WorkAttachmentCategory,
   WorkCategory,
@@ -171,4 +181,123 @@ export const WORK_ACTIVITY_ACTION_LABELS: Record<WorkActivityAction, string> = {
   obra_concluida: "Obra concluída",
   obra_arquivada: "Obra arquivada",
   obra_reaberta: "Obra reaberta",
+};
+
+// -----------------------------------------------------------------------------
+// Controle Financeiro
+// -----------------------------------------------------------------------------
+
+export const FINANCE_ROLE_LABELS: Record<FinanceRole, string> = {
+  admin: "Administrador",
+  financeiro: "Financeiro",
+  gestor: "Gestor",
+  consulta: "Consulta",
+  sem_acesso: "Sem acesso",
+};
+
+export const FINANCE_ROLE_DESCRIPTIONS: Record<FinanceRole, string> = {
+  admin: "Tudo, inclusive reabrir períodos e definir permissões.",
+  financeiro: "Lança, baixa, cadastra, importa e concilia.",
+  gestor: "Vê tudo, exporta relatórios e aprova o fechamento.",
+  consulta: "Somente leitura de painéis e relatórios.",
+  sem_acesso: "Não vê o Controle Financeiro.",
+};
+
+export const FIN_ACCOUNT_KIND_LABELS: Record<FinAccountKind, string> = {
+  checking: "Conta corrente",
+  savings: "Poupança",
+  cash: "Caixa (dinheiro)",
+  digital: "Conta digital / pagamentos",
+  investment: "Aplicação",
+};
+
+export const FIN_NATURE_LABELS: Record<FinNature, string> = {
+  own_revenue: "Receita própria",
+  other_revenue: "Outras receitas",
+  deduction: "Dedução da receita",
+  direct_cost: "Custo direto",
+  operating_expense: "Despesa operacional",
+  other_expense: "Outras despesas",
+  third_party: "Valor de terceiros",
+  deposit: "Caução / depósito",
+  equity: "Sócios",
+};
+
+/** Explica, na interface, o efeito contábil de cada natureza. */
+export const FIN_NATURE_HINTS: Record<FinNature, string> = {
+  own_revenue: "Entra no resultado como receita da imobiliária.",
+  other_revenue: "Receita não operacional (rendimentos, diversas).",
+  deduction: "Reduz a receita (impostos sobre faturamento).",
+  direct_cost: "Custo ligado diretamente às operações.",
+  operating_expense: "Despesa do dia a dia da imobiliária.",
+  other_expense: "Juros, multas e despesas não operacionais.",
+  third_party: "Dinheiro de terceiros: não é receita nem despesa, é obrigação.",
+  deposit: "Caução reembolsável: fica como obrigação até a devolução.",
+  equity: "Aporte ou retirada de sócios: não entra no resultado operacional.",
+};
+
+export const FIN_COUNTERPARTY_KIND_LABELS: Record<FinCounterpartyKind, string> = {
+  supplier: "Fornecedor",
+  client: "Cliente",
+  owner: "Proprietário",
+  tenant: "Inquilino",
+  broker: "Corretor",
+  partner: "Sócio",
+  government: "Órgão público",
+  bank: "Banco",
+  other: "Outro",
+};
+
+export const FIN_ENTRY_KIND_LABELS: Record<FinEntryKind, string> = {
+  income: "Entrada",
+  expense: "Saída",
+  transfer: "Transferência",
+  adjustment: "Ajuste de saldo",
+};
+
+export const FIN_ENTRY_STATUS_LABELS: Record<FinEntryStatus, string> = {
+  forecast: "Previsto",
+  open: "Em aberto",
+  partial: "Parcial",
+  settled: "Liquidado",
+  cancelled: "Cancelado",
+};
+
+export const FIN_ENTRY_STATUS_TONES: Record<FinEntryStatus, "neutral" | "accent" | "positive" | "warning" | "danger" | "info"> = {
+  forecast: "info",
+  open: "neutral",
+  partial: "warning",
+  settled: "positive",
+  cancelled: "neutral",
+};
+
+export const FIN_PAYMENT_METHOD_LABELS: Record<FinPaymentMethod, string> = {
+  pix: "Pix",
+  ted: "TED / transferência",
+  boleto: "Boleto",
+  cartao_credito: "Cartão de crédito",
+  cartao_debito: "Cartão de débito",
+  dinheiro: "Dinheiro",
+  cheque: "Cheque",
+  debito_automatico: "Débito automático",
+  outro: "Outro",
+};
+
+export const FIN_ORIGIN_LABELS: Record<FinEntryOrigin, string> = {
+  manual: "Manual",
+  opening_balance: "Saldo inicial",
+  commission: "Comissão",
+  rental: "Aluguel",
+  recurrence: "Recorrência",
+  import: "Importação",
+};
+
+export const FIN_OPERATION_KIND_LABELS: Record<FinOperationKind, string> = {
+  rental_collection: "Recebimento de aluguel",
+  commission_receipt: "Recebimento de comissão",
+};
+
+export const FIN_REGIME_LABELS: Record<FinRegime, string> = {
+  caixa: "Caixa",
+  competencia: "Competência",
 };

@@ -272,3 +272,33 @@ schema, RLS, auditoria, fechamento mensal e a **paridade de centavos entre TypeS
 ```bash
 npm run test:db
 ```
+
+---
+
+## Controle Financeiro (0010_finance_core.sql)
+
+| Tabela | Papel |
+|---|---|
+| `fin_accounts` | contas financeiras (tipo, banco, saldo e data iniciais) |
+| `fin_categories` | plano de categorias em 2 níveis; `nature`, `cost_behavior`, `system_key` |
+| `fin_cost_centers` | centros de custo |
+| `fin_counterparties` | favorecidos/pagadores (`kind`, `broker_id`) |
+| `fin_properties` | imóveis administrados (proprietário, taxa de administração) |
+| `fin_operations` | operações compostas (aluguel recebido, comissão no caixa); bruto = próprio + terceiros |
+| `fin_entries` | títulos: entrada/saída/transferência/ajuste, competência, vencimento, previsão, status, parcelas |
+| `fin_settlements` | baixas (parciais), com estorno lógico |
+| `fin_ledger_batches` / `fin_postings` | livro-razão imutável em partidas dobradas |
+| `fin_attachments` | comprovantes no storage |
+
+Coluna nova: `organization_members.finance_role`.
+
+View: `fin_entries_detail` (security_invoker) — saldo restante, nomes, atraso, anexos.
+
+Relatórios: `fin_report_summary`, `fin_report_monthly`, `fin_report_by_category`,
+`fin_account_balances`, `fin_report_properties`, `fin_pl_items`, `fin_suggest_category`.
+
+RPCs de escrita: `app_fin_save_*`, `app_fin_save_entry`, `app_fin_settle_entry`,
+`app_fin_reverse_settlement`, `app_fin_cancel_entry`, `app_fin_confirm_forecast`,
+`app_fin_bulk_categorize`, `app_fin_register_rental_collection`,
+`app_fin_register_commission_receipt`, `app_fin_cancel_operation`, `app_fin_register_attachment`,
+`app_fin_delete_attachment`, `app_set_member_finance_role`.

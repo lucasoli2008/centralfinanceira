@@ -4,6 +4,7 @@ import { signOut } from "@/features/auth/actions";
 import { Sidebar, type ShellIdentity } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { MEMBER_ROLE_LABELS } from "@/lib/formatting/labels";
+import { financeCan } from "@/lib/finance/permissions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const context = await requireAppContext();
@@ -19,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     userName: user.fullName,
     userEmail: user.email,
     roleLabel: MEMBER_ROLE_LABELS[role],
+    showFinance: financeCan(context.financeRole, "view"),
     onSignOut: signOut,
   };
 

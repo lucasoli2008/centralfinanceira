@@ -18,8 +18,50 @@ import {
 import { FormField, Input, NativeSelect } from "@/components/ui/field";
 import { inviteAdministrator, setMemberStatus } from "./actions";
 import { formatDate } from "@/lib/formatting/date";
-import { MEMBER_ROLE_LABELS } from "@/lib/formatting/labels";
+import { FINANCE_ROLE_DESCRIPTIONS, FINANCE_ROLE_LABELS, MEMBER_ROLE_LABELS } from "@/lib/formatting/labels";
+import { FINANCE_ROLES } from "@/lib/finance/permissions";
+import { setMemberFinanceRole } from "@/features/finance/actions";
 import type { MemberSummary } from "@/server/queries/organization";
+import type { FinanceRole } from "@/types/database";
+
+function FinanceRoleCell({ member, editable }: { member: MemberSummary; editable: boolean }) {
+  const router = useRouter();
+  const [pending, setPending] = React.useState(false);
+
+  if (!member.financeAvailable) return <span className="text-subtle">—</span>;
+  if (!editable) {
+    return <span title={FINANCE_ROLE_DESCRIPTIONS[member.financeRole]}>{FINANCE_ROLE_LABELS[member.financeRole]}</span>;
+  }
+
+  async function change(role: FinanceRole) {
+    setPending(true);
+    const result = await setMemberFinanceRole(member.id, role);
+    setPending(false);
+    if (result.status === "error") {
+      toast.error(result.message);
+      return;
+    }
+    toast.success(`Perfil financeiro de ${member.fullName}: ${FINANCE_ROLE_LABELS[role]}.`);
+    router.refresh();
+  }
+
+  return (
+    <NativeSelect
+      aria-label={`Perfil financeiro de ${member.fullName}`}
+      value={member.financeRole}
+      disabled={pending}
+      title={FINANCE_ROLE_DESCRIPTIONS[member.financeRole]}
+      onChange={(event) => change(event.target.value as FinanceRole)}
+      className="h-8 w-40 text-[12.5px]"
+    >
+      {FINANCE_ROLES.map((role) => (
+        <option key={role} value={role}>
+          {FINANCE_ROLE_LABELS[role]}
+        </option>
+      ))}
+    </NativeSelect>
+  );
+}
 
 export function MembersTable({
   members,
@@ -88,6 +130,7 @@ export function MembersTable({
                 <TH>Nome</TH>
                 <TH>Papel</TH>
                 <TH>Situação</TH>
+                <TH>Controle Financeiro</TH>
                 <TH>Desde</TH>
                 {isOwner ? (
                   <TH className="w-10">
@@ -112,6 +155,9 @@ export function MembersTable({
                     ) : (
                       <Badge tone="neutral">Inativo</Badge>
                     )}
+                  </TD>
+                  <TD>
+                    <FinanceRoleCell member={member} editable={isOwner && member.role !== "owner"} />
                   </TD>
                   <TD>{formatDate(member.createdAt)}</TD>
                   {isOwner ? (

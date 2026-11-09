@@ -162,3 +162,29 @@ npm outdated
 
 Vulnerabilidades conhecidas hoje estão restritas a dependências de **desenvolvimento**
 (cadeia do ESLint e do PostCSS); nenhuma afeta o runtime de produção.
+
+---
+
+## Controle Financeiro — perfis e escrita
+
+`organization_members.finance_role`: `admin`, `financeiro`, `gestor`, `consulta`, `sem_acesso`.
+O proprietário é sempre `admin`. Novos membros começam em `sem_acesso`. Só o proprietário altera
+perfis (`app_set_member_finance_role`, Configurações › Usuários).
+
+| Ação | admin | financeiro | gestor | consulta | sem_acesso |
+|---|---|---|---|---|---|
+| ver (`view`) | ✓ | ✓ | ✓ | ✓ | — |
+| lançar/baixar/cancelar (`write`) | ✓ | ✓ | — | — | — |
+| fechar mês (`close`) | ✓ | ✓ | ✓ | — | — |
+| administrar (`admin`) | ✓ | — | — | — | — |
+
+Defesa em profundidade:
+
+- SELECT nas tabelas `fin_*` exige `fin_can(org,'view')`.
+- INSERT/UPDATE exige `fin_can(org,'write')` **e** `fin_rpc_context()` — flag de transação ligada
+  apenas por `fin_require()` dentro das RPCs `app_fin_*`. Ninguém grava partidas soltas pela API.
+- Nenhuma tabela financeira tem policy de DELETE.
+- Server actions repetem a checagem (`requireFinance`/`authorize`); a interface só esconde botões.
+- Todas as mudanças passam por `audit_row_change` (`audit_logs`).
+- Comprovantes no bucket privado `finance-attachments`, caminho `{org}/{lançamento}/{uuid}-{nome}`;
+  leitura por URL assinada de curta duração; policies `fin_can` view/write.

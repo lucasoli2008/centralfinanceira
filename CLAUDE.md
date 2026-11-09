@@ -1,7 +1,9 @@
 # CLAUDE.md — instruções permanentes do projeto
 
 Central Financeira da **Roberta Oliveira Imóveis**: sistema interno para registrar e acompanhar
-**exclusivamente as comissões recebidas pela imobiliária**.
+as comissões recebidas pela imobiliária **e**, no módulo **Controle Financeiro** (`/financeiro`),
+a gestão financeira gerencial da empresa (contas, lançamentos, a pagar/receber, dinheiro de
+terceiros, DRE gerencial, fluxo de caixa).
 
 Leia este arquivo antes de qualquer alteração. Ele vale para qualquer agente ou pessoa que trabalhe
 no projeto.
@@ -12,18 +14,33 @@ O sistema responde: quanto entrou de comissão, quanto foi para os corretores, q
 imobiliária, quanto veio de vendas, quanto veio de locações, como evoluiu mês a mês e quem
 participou de cada operação.
 
-Existem **dois** tipos de lançamento: `sale` (Venda) e `rental` (Locação — comissão do **primeiro
-aluguel**).
+Existem **dois** tipos de lançamento de comissão: `sale` (Venda) e `rental` (Locação — comissão do
+**primeiro aluguel**).
+
+### 1.1 Controle Financeiro (ampliação de escopo aprovada em nov/2026)
+
+Módulo `/financeiro`, com livro-razão gerencial em partidas dobradas (`supabase/migrations/0010_finance_core.sql`).
+Permitido dentro dele: contas financeiras (corrente, poupança, caixa, digital, investimento),
+lançamentos de entrada/saída/transferência/ajuste, contas a pagar e a receber, baixas parciais,
+plano de categorias com natureza contábil, favorecidos (fornecedores, proprietários, inquilinos,
+corretores) **apenas como pagadores/recebedores**, imóveis administrados **apenas para separar
+aluguel, taxa de administração e repasse**, conciliação bancária por arquivo (OFX/CSV), DRE
+gerencial, fluxo de caixa e previsão, fechamento mensal, relatórios. Regras em
+`docs/FINANCIAL_RULES.md` §Controle Financeiro.
+
+Princípio inegociável: **dinheiro de terceiros nunca é receita**. Aluguel recebido de R$ 10.000 com
+taxa de R$ 1.000 = caixa +10.000, receita própria 1.000, obrigação de repasse 9.000.
 
 ## 2. Funcionalidades proibidas
 
 Não implemente, mesmo que pareça útil e mesmo que pedido de forma vaga:
 
-CRM, leads, pipeline, cadastro de clientes/proprietários/inquilinos, cadastro imobiliário completo,
-fotos de imóveis, portais externos, contratos, assinaturas, agenda, mensagens, WhatsApp,
-administração mensal de aluguel, IPTU, condomínio, inadimplência, reajustes, vistorias, recibos,
-boletos, contas bancárias, Open Finance, conciliação bancária, fluxo de caixa completo, contas a
-pagar/receber, folha de pagamento, contabilidade, estoque, módulos de ERP.
+CRM, leads, pipeline, cadastro imobiliário completo (ficha de imóvel além do necessário ao
+financeiro), fotos de imóveis, portais externos, contratos, assinaturas, agenda, mensagens, WhatsApp,
+gestão de contratos de locação (IPTU, condomínio, reajustes, vistorias), cobrança/inadimplência
+ativa, emissão de recibos e boletos, **conexão bancária direta / Open Finance sem integração real e
+autorizada**, folha de pagamento, contabilidade fiscal oficial (SPED, escrituração), estoque, módulos
+de ERP.
 
 Ideia fora do escopo → registre em `docs/FUTURE_IDEAS.md` **sem implementar**.
 
@@ -78,6 +95,9 @@ Regras:
 - Nenhuma regra financeira dentro de componente React.
 - PDFs consomem as mesmas funções de consulta que o dashboard.
 - Alterou fórmula? Atualize os três lugares **e** os testes de paridade (`tests/db/parity.spec.ts`).
+- **Controle Financeiro**: a fonte única são as funções SQL `fin_report_*`, `fin_pl_items` e
+  `fin_account_balances` (0010). Toda escrita passa por RPC `app_fin_*`; partidas são imutáveis,
+  estorno é lote espelho; nenhuma tabela `fin_*` tem DELETE. Testes em `tests/db/finance.spec.ts`.
 
 ## 7. Regras invioláveis do produto
 
