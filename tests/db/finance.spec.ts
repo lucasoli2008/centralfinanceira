@@ -20,7 +20,8 @@ let outra: SeededOrganization;
 let checking: string;
 let savings: string;
 
-const TODAY = new Date().toISOString().slice(0, 10);
+// "Hoje" no fuso da imobiliária, igual a fin_today() — em UTC o teste falha à noite.
+const TODAY = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 
 async function rpc<T>(userId: string, sql: string, params: unknown[] = []): Promise<T[]> {
   return asUser(db, userId, async () => {

@@ -154,6 +154,6 @@ real do projeto Supabase de teste.
 | 7 | Permissões | consulta lê e não escreve; sem_acesso não lê; outra org não vê | automatizado |
 | 8 | Insert direto em `fin_postings` | bloqueado por RLS | automatizado |
 | 9 | Coerência | soma mensal = resumo; categorias = receita própria; caixa = soma do razão | automatizado |
-| 10 | Conciliação bancária por arquivo | Fase 2 | pendente |
+| 10 | Conciliação bancária por arquivo | importação idempotente, sugestão inequívoca, baixa a partir do extrato, estorno desfaz conciliação (`tests/db/reconciliation.spec.ts`, `tests/unit/statement-parsers.spec.ts`) | automatizado |
 | 11 | Fechamento mensal bloqueia lançamentos | Fase 3 | pendente |
 | 12 | Relatórios PDF/Excel batem com a tela | Fase 3 | pendente |

@@ -9,6 +9,8 @@ import {
   Building,
   Gauge,
   Library,
+  ListChecks,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +19,9 @@ const ITEMS = [
   { href: "/financeiro/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
   { href: "/financeiro/a-pagar", label: "A pagar", icon: ArrowUpFromLine },
   { href: "/financeiro/a-receber", label: "A receber", icon: ArrowDownToLine },
+  { href: "/financeiro/conciliacao", label: "Conciliação", icon: ListChecks },
   { href: "/financeiro/imobiliario", label: "Imobiliário", icon: Building },
+  { href: "/financeiro/automacao", label: "Automação", icon: Wand2 },
   { href: "/financeiro/cadastros", label: "Cadastros", icon: Library },
 ];
 

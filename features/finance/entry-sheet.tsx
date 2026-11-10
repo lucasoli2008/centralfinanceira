@@ -70,7 +70,7 @@ function emptyValues(kind: FinEntryKind, accountId: string | null): FinEntryForm
 }
 
 /** Opções de categoria agrupadas e filtradas pela direção do lançamento. */
-function CategoryOptions({ categories, kind }: { categories: FinCategoryRow[]; kind: "income" | "expense" }) {
+export function CategoryOptions({ categories, kind }: { categories: FinCategoryRow[]; kind: "income" | "expense" }) {
   const natures = kind === "income" ? INCOME_NATURES : EXPENSE_NATURES;
   const groups = categories.filter((category) => !category.parent_id && natures.includes(category.nature));
   return (

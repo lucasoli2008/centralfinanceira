@@ -696,3 +696,139 @@ export interface FinPropertyResultRow {
   direct_expenses: number;
   result: number;
 }
+
+// -----------------------------------------------------------------------------
+// Controle Financeiro — Fase 2 (conciliação, regras, recorrências)
+// -----------------------------------------------------------------------------
+export type FinStatementLineStatus = "pending" | "matched" | "ignored";
+export type FinRuleDirection = "income" | "expense" | "any";
+export type FinRuleMatchMode = "contains" | "starts_with" | "equals";
+export type FinRecurrenceFrequency = "monthly" | "quarterly" | "yearly";
+
+export interface FinBankImportRow {
+  id: string;
+  organization_id: string;
+  account_id: string;
+  file_name: string;
+  file_format: "ofx" | "csv";
+  file_hash: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  statement_balance: number | null;
+  statement_balance_date: string | null;
+  lines_total: number;
+  lines_inserted: number;
+  lines_duplicated: number;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface FinStatementLineListRow {
+  id: string;
+  import_id: string;
+  posted_on: string;
+  amount: number;
+  description: string;
+  memo: string | null;
+  document_number: string | null;
+  status: FinStatementLineStatus;
+  ignore_reason: string | null;
+  matched_entry_id: string | null;
+  matched_settlement_id: string | null;
+  matched_description: string | null;
+  matched_at: string | null;
+  suggested_entry_id: string | null;
+  suggested_settlement_id: string | null;
+  suggested_description: string | null;
+  suggested_day_diff: number | null;
+  rule_id: string | null;
+  rule_name: string | null;
+  rule_category_id: string | null;
+  rule_category_name: string | null;
+}
+
+export interface FinLineCandidateRow {
+  candidate_type: "movement" | "open_entry";
+  entry_id: string;
+  settlement_id: string | null;
+  ref_date: string;
+  amount: number;
+  remaining: number;
+  description: string;
+  counterparty_name: string | null;
+  day_diff: number;
+  exact: boolean;
+}
+
+export interface FinReconciliationSummaryRow {
+  ledger_balance: number;
+  statement_balance: number | null;
+  statement_balance_date: string | null;
+  ledger_balance_at_statement: number | null;
+  difference: number | null;
+  pending_lines: number;
+  pending_in: number;
+  pending_out: number;
+  matched_lines: number;
+  ignored_lines: number;
+  first_line_date: string | null;
+  last_line_date: string | null;
+  unmatched_movements: number;
+  suggestions: number;
+  last_import_at: string | null;
+}
+
+export interface FinAccountMovementRow {
+  entry_id: string;
+  settlement_id: string | null;
+  movement_date: string;
+  signed_amount: number;
+  description: string;
+  counterparty_name: string | null;
+  entry_kind: FinEntryKind;
+  matched_line_id: string | null;
+}
+
+export interface FinRuleRow {
+  id: string;
+  organization_id: string;
+  name: string;
+  is_active: boolean;
+  priority: number;
+  match_direction: FinRuleDirection;
+  match_mode: FinRuleMatchMode;
+  match_text: string;
+  match_account_id: string | null;
+  amount_min: number | null;
+  amount_max: number | null;
+  category_id: string;
+  counterparty_id: string | null;
+  cost_center_id: string | null;
+  description_template: string | null;
+  times_applied: number;
+  last_applied_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FinRecurrenceRow {
+  id: string;
+  organization_id: string;
+  kind: "income" | "expense";
+  description: string;
+  amount: number;
+  category_id: string;
+  account_id: string | null;
+  counterparty_id: string | null;
+  cost_center_id: string | null;
+  property_id: string | null;
+  payment_method: FinPaymentMethod | null;
+  frequency: FinRecurrenceFrequency;
+  start_date: string;
+  end_date: string | null;
+  forecast_until: string | null;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}

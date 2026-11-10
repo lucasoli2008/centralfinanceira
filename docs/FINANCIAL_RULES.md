@@ -215,3 +215,33 @@ Ambos vêm de `fin_pl_items`; o sinal vem de `fin_result_sign`.
 
 1 a 60 parcelas; valor = total ÷ n arredondado; o resto vai para a última (1.000 em 3 →
 333,33 / 333,33 / 333,34).
+
+### Conciliação bancária (Fase 2, migração 0011)
+
+- **Importar não move dinheiro.** As transações do extrato ficam em `fin_statement_lines` como
+  `pending` até serem conciliadas ou ignoradas.
+- **Idempotência**: `unique (account_id, external_id)`. OFX usa o FITID (`ofx:<FITID>`); sem FITID
+  único ou CSV, usamos uma impressão digital de data|valor|descrição|documento + a ordem entre
+  linhas idênticas do mesmo arquivo. Reimportar o mesmo período não duplica.
+- **Conciliar** = ligar a linha a **um** movimento de caixa da mesma conta com o **mesmo valor
+  assinado**: baixa (entrada +, saída −), transferência (sai −, entra +) ou ajuste. O saldo inicial
+  não é transação bancária. Um movimento concilia com no máximo uma linha (índices únicos).
+- **Sugestão inequívoca**: mesmo valor, até 3 dias de diferença, um único candidato de cada lado.
+  Só é aplicada quando o usuário clica em "Confirmar".
+- **Resolver uma linha**: (1) conciliar com movimento existente; (2) baixar uma conta em aberto com
+  a data/valor do banco (baixa parcial permitida); (3) criar lançamento já realizado ou
+  transferência; (4) ignorar com justificativa (10+).
+- **Integridade**: estornar a baixa, cancelar o lançamento ou alterar valor/conta de transferência
+  devolve a linha para `pending` automaticamente (triggers).
+- **Diferença** = saldo final do extrato − saldo do sistema na mesma data.
+
+### Regras e recorrências
+
+- Regras (`fin_rules`): texto (contém/começa/igual, sem acento e sem caixa), direção, conta, faixa de
+  valor → categoria, favorecido, centro de custo. Menor `priority` vence. São **sugestões**: no
+  extrato só criam lançamentos após revisão e confirmação; no formulário sugerem a categoria antes
+  do histórico.
+- Recorrências (`fin_recurrences`): mensal, trimestral ou anual, sempre calculadas a partir da data
+  inicial (sem deriva de fim de mês). Geram **previsões** (`is_forecast`, sem partidas) até 90 dias.
+  Editar cancela as previsões futuras intocadas e refaz; ocorrências já pagas ou confirmadas não se
+  repetem.

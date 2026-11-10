@@ -302,3 +302,21 @@ RPCs de escrita: `app_fin_save_*`, `app_fin_save_entry`, `app_fin_settle_entry`,
 `app_fin_bulk_categorize`, `app_fin_register_rental_collection`,
 `app_fin_register_commission_receipt`, `app_fin_cancel_operation`, `app_fin_register_attachment`,
 `app_fin_delete_attachment`, `app_set_member_finance_role`.
+
+### Fase 2 (0011_finance_reconciliation.sql)
+
+| Tabela | Papel |
+|---|---|
+| `fin_bank_imports` | cada arquivo importado: conta, formato, período, saldo final, contagens |
+| `fin_statement_lines` | transações do extrato (valor assinado), status pending/matched/ignored, vínculo com lançamento/baixa |
+| `fin_rules` | regras de categorização |
+| `fin_recurrences` | recorrências que geram previsões (`forecast_until` = horizonte já gerado) |
+
+Coluna nova: `fin_entries.recurrence_id`.
+
+Funções: `fin_account_movements`, `fin_line_candidates`, `fin_reconciliation_suggestions`,
+`fin_statement_lines_list`, `fin_reconciliation_summary`, `fin_match_rule`, `fin_normalize`.
+RPCs: `app_fin_import_statement`, `app_fin_match_line`, `app_fin_confirm_suggestions`,
+`app_fin_settle_from_line`, `app_fin_create_from_line`, `app_fin_create_from_rules`,
+`app_fin_unmatch_line`, `app_fin_ignore_line`, `app_fin_save_rule`, `app_fin_save_recurrence`,
+`app_fin_generate_recurrences`. `fin_suggest_category` passou a consultar as regras primeiro.
