@@ -16,6 +16,10 @@ import { resolvePeriod } from "@/lib/period";
 import { formatCurrency } from "@/lib/formatting/number";
 import { buildSearchParams } from "@/lib/utils";
 import type { AmountMode, EntryType, PropertyType } from "@/lib/finance/types";
+import { getAppContext } from "@/lib/auth/session";
+import { financeCan } from "@/lib/finance/permissions";
+import { getCommissionReceipts } from "@/server/queries/finance-month";
+import { listFinAccounts } from "@/server/queries/finance";
 
 export interface EntriesSearchParams {
   periodo?: string;
@@ -59,7 +63,18 @@ export async function EntriesPage({
     listActiveYears(),
   ]);
 
-  const authors = await getEntryAuthors(rows);
+  const [authors, receipts, context] = await Promise.all([
+    getEntryAuthors(rows),
+    getCommissionReceipts(rows.map((row) => row.entry_id)),
+    getAppContext(),
+  ]);
+  // Sem o módulo financeiro no banco (receipts = null), a coluna "Recebido" não aparece.
+  const canViewFinance = Boolean(context && financeCan(context.financeRole, "view"));
+  const accounts = receipts && canViewFinance ? await listFinAccounts(false) : [];
+  const receiptMap =
+    receipts && canViewFinance
+      ? Object.fromEntries([...receipts].map(([id, row]) => [id, { operationId: row.operation_id, receivedOn: row.received_on }]))
+      : null;
   const isSale = entryType === "sale";
 
   const pdfHref = `/api/relatorios/filtrado${buildSearchParams({
@@ -149,6 +164,9 @@ export async function EntriesPage({
         page={page}
         pageSize={PAGE_SIZE}
         total={total}
+        receipts={receiptMap}
+        receiptAccounts={accounts.map((account) => ({ id: account.id, name: account.name }))}
+        canReceive={Boolean(context && financeCan(context.financeRole, "write"))}
       />
     </>
   );

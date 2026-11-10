@@ -5,8 +5,10 @@ import { formatMonthYear } from "@/lib/formatting/date";
 import { logServerError } from "@/lib/errors";
 import { getReportBranding, pdfResponse } from "@/server/reports/branding";
 import { renderClosingReport, renderDreReport } from "@/server/reports/finance-pdf";
+import { renderMonthReport, renderYearReport } from "@/server/reports/finance-month-pdf";
+import { getYearCards, listMonthRecurringItems } from "@/server/queries/finance-month";
 import { buildDreWorkbook, buildEntriesWorkbook, buildProjectionWorkbook, xlsxResponse } from "@/server/reports/finance-xlsx";
-import { getFinAccountBalances, getFinSummary, listFinEntries } from "@/server/queries/finance";
+import { getFinAccountBalances, getFinByCategory, getFinSummary, listFinEntries } from "@/server/queries/finance";
 import { getCashProjection, getCloseChecklist, getDre, listPeriodCloses } from "@/server/queries/finance-reports";
 import type { FinEntryDetailRow, FinRegime, FinSummaryRow } from "@/types/database";
 
@@ -36,6 +38,53 @@ export async function GET(request: NextRequest) {
     const search = request.nextUrl.searchParams;
     const tipo = search.get("tipo");
     const formato = search.get("formato") === "xlsx" ? "xlsx" : "pdf";
+
+    if (tipo === "mes") {
+      const year = Number(search.get("ano"));
+      const month = Number(search.get("mes"));
+      if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+        return new Response("Informe o ano e o mês.", { status: 400 });
+      }
+      const from = `${year}-${String(month).padStart(2, "0")}-01`;
+      const to = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+      const entries: FinEntryDetailRow[] = [];
+      for (let page = 1; entries.length < 2000; page++) {
+        const { rows: batch } = await listFinEntries(
+          { view: "all", from, to, dateField: "reference_date" },
+          { page, pageSize: 1000 },
+        );
+        entries.push(...batch.filter((row) => row.kind === "income" || row.kind === "expense"));
+        if (batch.length < 1000) break;
+      }
+      entries.sort((a, b) => a.reference_date.localeCompare(b.reference_date));
+      const [cash, competence, dre, expensesByCategory, incomeByCategory, bills, closes] = await Promise.all([
+        getFinSummary({ from, to, regime: "caixa" }),
+        getFinSummary({ from, to, regime: "competencia" }),
+        getDre(from, to, "competencia"),
+        getFinByCategory({ from, to, regime: "competencia" }, "expense"),
+        getFinByCategory({ from, to, regime: "competencia" }, "income"),
+        listMonthRecurringItems(from, to),
+        listPeriodCloses(year),
+      ]);
+      const closed = closes.some((item) => item.month === month && !item.reopened_at);
+      return pdfResponse(
+        await renderMonthReport({ branding, year, month, cash, competence, dre, expensesByCategory, incomeByCategory, bills, entries, closed }),
+        `financeiro-${year}-${String(month).padStart(2, "0")}.pdf`,
+      );
+    }
+
+    if (tipo === "ano") {
+      const year = Number(search.get("ano"));
+      if (!Number.isInteger(year) || year < 2000 || year > 2100) return new Response("Informe o ano.", { status: 400 });
+      const from = `${year}-01-01`;
+      const to = `${year}-12-31`;
+      const [cards, dre, expensesByCategory] = await Promise.all([
+        getYearCards(year),
+        getDre(from, to, "competencia"),
+        getFinByCategory({ from, to, regime: "competencia" }, "expense"),
+      ]);
+      return pdfResponse(await renderYearReport({ branding, year, cards, dre, expensesByCategory }), `financeiro-${year}.pdf`);
+    }
 
     if (tipo === "dre") {
       const period = resolvePeriod(periodParams(search));

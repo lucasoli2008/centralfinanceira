@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { FormField, Input } from "@/components/ui/field";
 import { EntriesFilters, type ColumnOption } from "./entries-filters";
+import { CommissionReceiptToggle, type ReceiptInfo } from "./commission-receipt";
 import { deleteEntry } from "./actions";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { formatCurrency, formatPercent } from "@/lib/formatting/number";
@@ -60,6 +61,10 @@ interface EntriesTableProps {
   page: number;
   pageSize: number;
   total: number;
+  /** Recebimentos no caixa por lançamento; null = módulo financeiro indisponível. */
+  receipts?: Record<string, ReceiptInfo> | null;
+  receiptAccounts?: { id: string; name: string }[];
+  canReceive?: boolean;
 }
 
 export function EntriesTable({
@@ -72,7 +77,11 @@ export function EntriesTable({
   page,
   pageSize,
   total,
+  receipts = null,
+  receiptAccounts = [],
+  canReceive = false,
 }: EntriesTableProps) {
+  const showReceipts = receipts !== null;
   const router = useRouter();
   const basePath = entryType === "sale" ? "/vendas" : "/locacoes";
   const baseLabel = entryType === "sale" ? "Valor da venda" : "Primeiro aluguel";
@@ -168,6 +177,7 @@ export function EntriesTable({
               </caption>
               <THead>
                 <TR>
+                  {showReceipts ? <TH className="w-28">Recebido</TH> : null}
                   {isVisible("entry_date") ? <TH>Data</TH> : null}
                   {isVisible("description") ? <TH>Descrição</TH> : null}
                   {isVisible("reference") ? <TH>Referência</TH> : null}
@@ -187,7 +197,22 @@ export function EntriesTable({
 
               <TBody>
                 {rows.map((row) => (
-                  <TR key={row.entry_id}>
+                  <TR key={row.entry_id} className={showReceipts && receipts?.[row.entry_id] ? "bg-positive-soft/60 hover:bg-positive-soft" : undefined}>
+                    {showReceipts ? (
+                      <TD>
+                        <CommissionReceiptToggle
+                          entryId={row.entry_id}
+                          description={row.description}
+                          grossCommission={row.gross_commission}
+                          netRevenue={row.net_company_revenue}
+                          brokerPayout={row.total_broker_payout}
+                          receipt={receipts?.[row.entry_id] ?? null}
+                          accounts={receiptAccounts}
+                          canReceive={canReceive}
+                          blocked={row.exception_confirmed || row.net_company_revenue < 0}
+                        />
+                      </TD>
+                    ) : null}
                     {isVisible("entry_date") ? (
                       <TD className="whitespace-nowrap tabular">{formatDate(row.entry_date)}</TD>
                     ) : null}
@@ -313,7 +338,7 @@ export function EntriesTable({
 
               <TFoot>
                 <TR className="hover:bg-transparent">
-                  <TD colSpan={visibleColumns.filter((id) => !isNumericColumn(id)).length}>
+                  <TD colSpan={visibleColumns.filter((id) => !isNumericColumn(id)).length + (showReceipts ? 1 : 0)}>
                     Total do período
                   </TD>
                   {isVisible("base_amount") ? (

@@ -197,3 +197,10 @@ Defesa em profundidade:
   consultas com RLS — quem não vê o financeiro não baixa nada.
 - Conciliação e regras (Fase 2) seguem o padrão: escrita só por RPC `app_fin_*`; importar e
   conciliar exigem `write`.
+
+### Importação administrativa (0013)
+
+`fin_admin_*` são SECURITY DEFINER e **executáveis só por `service_role`** (revogadas de public, anon e
+authenticated). Elas fixam `request.jwt.claims.sub` do usuário informado dentro da transação e chamam as
+RPCs normais — permissões (`fin_require`), validações, razão e auditoria são as mesmas de um lançamento
+feito na tela. Usadas apenas pelo script local `scripts/finance-import.mjs`, que lê a chave do `.env.local`.

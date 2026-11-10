@@ -291,3 +291,22 @@ primeira linha reúne os **vencidos**. O saldo final em 30 dias por dia é igual
 negativo, caixa projetado negativo, repasses a terceiros vencidos, contas vencidas, previsões
 passadas, extrato pendente > 7 dias, comissões fora do caixa, mês anterior sem fechamento,
 tendência do resultado, despesa > 130% da média de 3 meses. Nenhum alerta executa ação.
+
+### Controle Financeiro simplificado (migração 0013)
+
+- **Navegação**: a tela inicial mostra o ano em 12 cartões (`fin_report_year_cards`). Cada mês abre
+  `/financeiro/mes/AAAA-MM` com Resumo, Saídas, Entradas, Extrato do banco e Resultado/fechamento.
+- **Lançamento rápido** (`app_fin_quick_entry`): entrada ou saída, já paga ou não, e "repete todo mês"
+  com **valor fixo** (salário) ou **valor variável** (luz, água).
+  - A ocorrência do mês informado é uma conta real (a pagar/receber ou paga); as próximas são
+    previsões (sem efeito no razão).
+  - Variável: a estimativa das próximas é o último valor pago (`fin_recurrence_estimate`); ao pagar com
+    outro valor (`app_fin_pay_occurrence`), as previsões futuras intocadas passam a usar esse valor.
+- **Comissão recebida** (Vendas/Locações): a bolinha "Recebido" pede a data (digitada) e a conta e
+  chama `app_fin_register_commission_receipt` — caixa +bruta, receita própria = líquida, repasses aos
+  corretores como obrigações. A linha fica verde. Desmarcar = `app_fin_cancel_operation` (estorna).
+  Depois de recebida, alterar valores ou excluir a comissão é bloqueado (gatilho diferido que compara
+  os totais com a operação).
+- **Importação de documentos escaneados**: `scripts/finance-import.mjs` → `fin_admin_preview_import`
+  / `fin_admin_import_entries` (só `service_role`). Executa `app_fin_quick_entry` em nome do usuário
+  (auditoria normal), lote inteiro ou nada, com `fin_admin_cancel_import_batch` para desfazer.

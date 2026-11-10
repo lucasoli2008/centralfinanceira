@@ -2,46 +2,37 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ArrowDownToLine,
-  ArrowLeftRight,
-  ArrowUpFromLine,
-  Building,
-  Gauge,
-  Library,
-  Lightbulb,
-  LineChart,
-  Lock,
-  Table2,
-  ListChecks,
-  Wand2,
-} from "lucide-react";
+import { Building, CalendarDays, Lightbulb, LineChart, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const ITEMS = [
-  { href: "/financeiro", label: "Painel", icon: Gauge, exact: true },
-  { href: "/financeiro/inteligencia", label: "Inteligência", icon: Lightbulb },
-  { href: "/financeiro/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
-  { href: "/financeiro/a-pagar", label: "A pagar", icon: ArrowUpFromLine },
-  { href: "/financeiro/a-receber", label: "A receber", icon: ArrowDownToLine },
-  { href: "/financeiro/conciliacao", label: "Conciliação", icon: ListChecks },
-  { href: "/financeiro/imobiliario", label: "Imobiliário", icon: Building },
-  { href: "/financeiro/fluxo", label: "Fluxo de caixa", icon: LineChart },
-  { href: "/financeiro/dre", label: "DRE", icon: Table2 },
-  { href: "/financeiro/fechamento", label: "Fechamento", icon: Lock },
-  { href: "/financeiro/automacao", label: "Automação", icon: Wand2 },
-  { href: "/financeiro/cadastros", label: "Cadastros", icon: Library },
+/**
+ * Menu do Controle Financeiro, enxuto: o dia a dia acontece dentro de cada mês
+ * (Visão do ano → mês). As telas antigas (lançamentos, a pagar, DRE...) seguem
+ * acessíveis por links internos e pelos alertas.
+ */
+const ITEMS: { href: string; label: string; icon: typeof CalendarDays; match: string[] }[] = [
+  {
+    href: "/financeiro",
+    label: "Meses do ano",
+    icon: CalendarDays,
+    match: ["/financeiro", "/financeiro/mes", "/financeiro/lancamentos", "/financeiro/a-pagar", "/financeiro/a-receber", "/financeiro/conciliacao", "/financeiro/dre", "/financeiro/fechamento", "/financeiro/painel"],
+  },
+  { href: "/financeiro/fluxo", label: "Fluxo de caixa", icon: LineChart, match: ["/financeiro/fluxo"] },
+  { href: "/financeiro/imobiliario", label: "Aluguéis e comissões", icon: Building, match: ["/financeiro/imobiliario"] },
+  { href: "/financeiro/inteligencia", label: "Alertas", icon: Lightbulb, match: ["/financeiro/inteligencia"] },
+  { href: "/financeiro/cadastros", label: "Configurações", icon: Settings2, match: ["/financeiro/cadastros", "/financeiro/automacao"] },
 ];
 
-/** Subnavegação do Controle Financeiro — rolável no celular, fixa no topo da seção. */
 export function FinanceNav() {
   const pathname = usePathname();
+  const isActive = (item: (typeof ITEMS)[number]) =>
+    item.match.some((prefix) => (prefix === "/financeiro" ? pathname === prefix : pathname === prefix || pathname.startsWith(`${prefix}/`)));
 
   return (
     <nav aria-label="Módulos do Controle Financeiro" className="-mx-4 mb-6 border-b border-border px-4 lg:mx-0 lg:px-0">
       <ul className="-mb-px flex gap-1 overflow-x-auto">
         {ITEMS.map((item) => {
-          const active = item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const active = isActive(item);
           const Icon = item.icon;
           return (
             <li key={item.href} className="shrink-0">
@@ -50,9 +41,7 @@ export function FinanceNav() {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-[13px] font-medium transition-colors",
-                  active
-                    ? "border-accent text-foreground"
-                    : "border-transparent text-muted hover:border-border-strong hover:text-foreground",
+                  active ? "border-accent text-foreground" : "border-transparent text-muted hover:border-border-strong hover:text-foreground",
                 )}
               >
                 <Icon className={cn("size-3.5", active ? "text-accent" : "text-subtle")} />

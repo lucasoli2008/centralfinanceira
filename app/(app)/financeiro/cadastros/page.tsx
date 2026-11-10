@@ -42,8 +42,8 @@ export default async function FinanceRegistryPage({ searchParams }: { searchPara
   return (
     <>
       <PageHeader
-        title="Cadastros"
-        description="Contas, categorias, favorecidos, imóveis e centros de custo usados em todos os lançamentos."
+        title="Configurações do financeiro"
+        description="Contas, categorias, favorecidos, imóveis, centros de custo, regras e recorrências."
       />
       <nav aria-label="Seções de cadastro" className="mb-5 flex flex-wrap gap-1 border-b border-border">
         {TABS.map((item) => (
@@ -59,6 +59,12 @@ export default async function FinanceRegistryPage({ searchParams }: { searchPara
             {item.label}
           </Link>
         ))}
+        <Link
+          href="/financeiro/automacao"
+          className="-mb-px border-b-2 border-transparent px-3 py-2 text-[13px] text-muted transition-colors hover:text-foreground"
+        >
+          Regras e recorrências
+        </Link>
       </nav>
       <TabContent tab={tab} canWrite={canWrite} />
     </>

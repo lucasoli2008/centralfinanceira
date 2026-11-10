@@ -246,6 +246,7 @@ export const FIN_COUNTERPARTY_KIND_LABELS: Record<FinCounterpartyKind, string> =
   government: "Órgão público",
   bank: "Banco",
   other: "Outro",
+  employee: "Funcionário",
 };
 
 export const FIN_ENTRY_KIND_LABELS: Record<FinEntryKind, string> = {

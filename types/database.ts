@@ -459,7 +459,8 @@ export type FinCounterpartyKind =
   | "partner"
   | "government"
   | "bank"
-  | "other";
+  | "other"
+  | "employee";
 export type FinEntryKind = "income" | "expense" | "transfer" | "adjustment";
 export type FinEntryStatus = "forecast" | "open" | "partial" | "settled" | "cancelled";
 export type FinPaymentMethod =
@@ -827,6 +828,7 @@ export interface FinRecurrenceRow {
   start_date: string;
   end_date: string | null;
   forecast_until: string | null;
+  value_mode: "fixed" | "variable";
   is_active: boolean;
   notes: string | null;
   created_at: string;
@@ -879,4 +881,30 @@ export interface FinInsightRow {
   detail: string;
   metric: number | null;
   href: string;
+}
+
+// -----------------------------------------------------------------------------
+// Controle Financeiro simplificado (0013)
+// -----------------------------------------------------------------------------
+export interface FinYearCardRow {
+  month: number;
+  cash_in: number;
+  cash_out: number;
+  revenue: number;
+  expenses: number;
+  result: number;
+  closing_balance: number;
+  payables_count: number;
+  payables_amount: number;
+  receivables_count: number;
+  receivables_amount: number;
+  statement_pending: number;
+  is_closed: boolean;
+}
+
+export interface CommissionReceiptRow {
+  entry_id: string;
+  operation_id: string;
+  received_on: string;
+  gross_amount: number;
 }

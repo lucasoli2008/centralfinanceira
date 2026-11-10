@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EntryForm } from "./entry-form";
 import { EntryDetailActions } from "./entry-detail-actions";
+import { CommissionReceiptToggle } from "./commission-receipt";
+import { getCommissionReceipts } from "@/server/queries/finance-month";
+import { listFinAccounts } from "@/server/queries/finance";
+import { financeCan } from "@/lib/finance/permissions";
 import { requireAppContext } from "@/lib/auth/session";
 import { getEntryDetail, getMonthClosing } from "@/server/queries/entries";
 import { listBrokers } from "@/server/queries/brokers";
@@ -180,6 +184,10 @@ export async function EntryDetailPage({
 
   const { entry, splits } = detail;
   const [year, month] = entry.entry_date.split("-").map(Number);
+  const canViewFinance = financeCan(context.financeRole, "view");
+  const receipts = canViewFinance ? await getCommissionReceipts([entry.entry_id]) : null;
+  const receipt = receipts?.get(entry.entry_id) ?? null;
+  const receiptAccounts = receipts ? (await listFinAccounts(false)).map((account) => ({ id: account.id, name: account.name })) : [];
   const monthClosed = await isMonthClosed(
     entry.entry_date,
     context.settings.monthly_closing_enabled,
@@ -216,6 +224,22 @@ export async function EntryDetailPage({
             <Badge tone="danger">Excluído</Badge>
           ) : (
             <>
+              {receipts ? (
+                <span className="inline-flex items-center gap-2 rounded-control border border-border px-3 py-1.5 text-[12.5px]">
+                  <span className="text-muted">No caixa:</span>
+                  <CommissionReceiptToggle
+                    entryId={entry.entry_id}
+                    description={entry.description}
+                    grossCommission={entry.gross_commission}
+                    netRevenue={entry.net_company_revenue}
+                    brokerPayout={entry.total_broker_payout}
+                    receipt={receipt ? { operationId: receipt.operation_id, receivedOn: receipt.received_on } : null}
+                    accounts={receiptAccounts}
+                    canReceive={financeCan(context.financeRole, "write")}
+                    blocked={entry.exception_confirmed || entry.net_company_revenue < 0}
+                  />
+                </span>
+              ) : null}
               <Button asChild variant="secondary">
                 <Link href={`${basePath(entryType)}/nova?duplicar=${entry.entry_id}`}>
                   <Copy />

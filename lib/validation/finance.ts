@@ -46,6 +46,7 @@ export const FIN_COUNTERPARTY_KINDS = [
   "government",
   "bank",
   "other",
+  "employee",
 ] as const;
 export const FIN_PAYMENT_METHODS = [
   "pix",

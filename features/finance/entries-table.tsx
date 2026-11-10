@@ -73,6 +73,7 @@ export function EntriesTable({
   mode = "ledger",
   defaultStatus = "",
   newKind = "expense",
+  showCreate = true,
 }: {
   rows: FinEntryDetailRow[];
   total: number;
@@ -83,6 +84,8 @@ export function EntriesTable({
   mode?: Mode;
   defaultStatus?: string;
   newKind?: FinEntryKind;
+  /** Esconde o botão de criar (a página já oferece o lançamento rápido). */
+  showCreate?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -197,7 +200,7 @@ export function EntriesTable({
         </NativeSelect>
 
         <div className="ml-auto flex gap-2">
-          {canWrite ? (
+          {canWrite && showCreate ? (
             <Button onClick={() => setCreating(true)}>
               <Plus />
               {mode === "payables" ? "Nova conta a pagar" : mode === "receivables" ? "Nova conta a receber" : "Novo lançamento"}

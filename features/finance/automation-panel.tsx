@@ -26,6 +26,7 @@ import { FIN_PAYMENT_METHODS } from "@/lib/validation/finance";
 import { cn } from "@/lib/utils";
 import { CategoryOptions } from "./entry-sheet";
 import { generateRecurrenceForecasts, saveFinRecurrence, saveFinRule } from "./automation-actions";
+import { setRecurrenceValueMode } from "./simple-actions";
 import type { FinLookups } from "@/server/queries/finance";
 import type {
   FinRecurrenceFrequency,
@@ -375,7 +376,10 @@ export function RecurrencesSection({
                         {!item.is_active ? " · encerrada" : ""}
                       </span>
                     </TD>
-                    <TD className="text-muted">{FREQUENCY_LABELS[item.frequency]}</TD>
+                    <TD className="text-muted">
+                      {FREQUENCY_LABELS[item.frequency]}
+                      <span className="block text-[11px] text-subtle">{item.value_mode === "variable" ? "valor muda" : "valor fixo"}</span>
+                    </TD>
                     <TD className="text-muted">{nameOf(lookups.categories, item.category_id) ?? "—"}</TD>
                     <TD numeric className={item.kind === "income" ? "text-info" : undefined}>
                       {formatCurrency(item.amount)}
@@ -436,6 +440,7 @@ function RecurrenceDialog({
   const [endDate, setEndDate] = React.useState(recurrence?.end_date ?? "");
   const [active, setActive] = React.useState(recurrence?.is_active ?? true);
   const [notes, setNotes] = React.useState(recurrence?.notes ?? "");
+  const [valueMode, setValueMode] = React.useState<"fixed" | "variable">(recurrence?.value_mode ?? "fixed");
 
   async function submit() {
     if (amount === null) return;
@@ -459,6 +464,10 @@ function RecurrenceDialog({
       },
       recurrence?.id,
     );
+    if (result.status === "ok" && valueMode !== (recurrence?.value_mode ?? "fixed")) {
+      const modeResult = await setRecurrenceValueMode(result.data.id, valueMode);
+      if (modeResult.status === "error") toast.error(modeResult.message);
+    }
     setPending(false);
     if (result.status === "error") {
       toast.error(result.message);
@@ -500,6 +509,12 @@ function RecurrenceDialog({
           </FormField>
           <FormField label="Valor" htmlFor="rec-amount" required>
             <MoneyInput id="rec-amount" value={amount} onChange={setAmount} />
+          </FormField>
+          <FormField label="O valor" htmlFor="rec-value-mode" hint={valueMode === "variable" ? "Usamos o último valor pago como estimativa." : undefined}>
+            <NativeSelect id="rec-value-mode" value={valueMode} onChange={(event) => setValueMode(event.target.value as "fixed" | "variable")}>
+              <option value="fixed">É sempre o mesmo (salário, aluguel)</option>
+              <option value="variable">Muda todo mês (luz, água)</option>
+            </NativeSelect>
           </FormField>
           <FormField label="Frequência" htmlFor="rec-frequency">
             <NativeSelect id="rec-frequency" value={frequency} onChange={(event) => setFrequency(event.target.value as FinRecurrenceFrequency)}>

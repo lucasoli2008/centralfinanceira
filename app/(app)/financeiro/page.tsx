@@ -1,273 +1,148 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Info, Landmark, Plus } from "lucide-react";
+import { BarChart3, FileText, LineChart } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
-import { MetricCard } from "@/components/finance/metric-card";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
-import { InfoTooltip } from "@/components/ui/tooltip";
 import { requireFinance } from "@/lib/auth/session";
 import { financeCan } from "@/lib/finance/permissions";
-import { trailingTwelveMonths } from "@/lib/period";
-import { formatCurrency, formatInteger } from "@/lib/formatting/number";
-import { FIN_ACCOUNT_KIND_LABELS, FIN_REGIME_LABELS } from "@/lib/formatting/labels";
+import { formatCurrency } from "@/lib/formatting/number";
+import { todayInTimezone } from "@/lib/formatting/date";
 import { cn } from "@/lib/utils";
-import {
-  getFinAccountBalances,
-  getFinByCategory,
-  getFinMonthly,
-  getFinSummary,
-  listFinAccounts,
-  listFinCategories,
-} from "@/server/queries/finance";
-import { FinanceFilters } from "@/features/finance/finance-filters";
-import { InsightList } from "@/features/finance/insight-list";
+import { getFinLookups, getFinSummary } from "@/server/queries/finance";
 import { getFinInsights } from "@/server/queries/finance-reports";
-import { financeYears, resolveFinanceFilters, type FinanceSearchParams } from "@/features/finance/filters";
-import {
-  CashBalanceChart,
-  CashInOutChart,
-  CategoryBreakdown,
-  MarginTrendChart,
-  PlannedVsActualChart,
-  ResultEvolutionChart,
-  RevenueCompositionChart,
-} from "@/features/finance/finance-charts";
+import { getYearCards } from "@/server/queries/finance-month";
+import { InsightList } from "@/features/finance/insight-list";
+import { MonthCard, type MonthState } from "@/features/finance/month-card";
+import { QuickEntryButton } from "@/features/finance/quick-entry-sheet";
 
 export const metadata: Metadata = { title: "Controle Financeiro" };
 
-function variation(current: number, previous: number): number | null {
-  if (previous === 0) return null;
-  return ((current - previous) / Math.abs(previous)) * 100;
-}
-
-export default async function FinanceDashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<FinanceSearchParams>;
-}) {
+export default async function FinanceYearPage({ searchParams }: { searchParams: Promise<{ ano?: string }> }) {
   const context = await requireFinance("view");
-  const params = await searchParams;
-  const { filters, period } = resolveFinanceFilters(params);
-  const twelve = trailingTwelveMonths(period.to);
   const canWrite = financeCan(context.financeRole, "write");
+  const params = await searchParams;
+  const today = todayInTimezone();
+  const [currentYear, currentMonth] = today.split("-").map(Number);
+  const year = Number(params.ano) >= 2000 && Number(params.ano) <= 2100 ? Number(params.ano) : currentYear;
 
-  const [accounts, categories, summary, previous, monthly, expensesByCategory, revenueByCategory, balances, insights] =
-    await Promise.all([
-      listFinAccounts(),
-      listFinCategories(),
-      getFinSummary(filters),
-      period.previous
-        ? getFinSummary({ ...filters, from: period.previous.from, to: period.previous.to })
-        : Promise.resolve(null),
-      getFinMonthly({ ...filters, from: twelve.from, to: twelve.to }),
-      getFinByCategory(filters, "expense"),
-      getFinByCategory(filters, "income"),
-      getFinAccountBalances(),
-      getFinInsights(),
-    ]);
+  const [lookups, cards, summary, insights] = await Promise.all([
+    getFinLookups(),
+    getYearCards(year),
+    getFinSummary({ from: `${currentYear}-${String(currentMonth).padStart(2, "0")}-01`, to: today, regime: "caixa" }),
+    getFinInsights(),
+  ]);
 
-  if (accounts.length === 0) {
+  if (lookups.accounts.length === 0) {
     return (
       <>
-        <PageHeader
-          title="Controle Financeiro"
-          description="Toda a movimentação da imobiliária em um só lugar: o que entrou, o que saiu, o que é de terceiros e o que ainda falta pagar ou receber."
-        />
+        <PageHeader title="Controle Financeiro" description="Entradas, saídas e resultado da imobiliária, mês a mês." />
         <div className="surface-card">
           <EmptyState
-            title="Comece cadastrando suas contas financeiras"
-            description="Cadastre a conta corrente, a poupança e o caixa da imobiliária com o saldo de hoje. A partir daí, cada lançamento atualiza os saldos e este painel automaticamente."
-            actionLabel={canWrite ? "Cadastrar primeira conta" : undefined}
+            title="Comece cadastrando a conta da imobiliária"
+            description="Informe o banco e o saldo de hoje. A partir daí, cada mês do ano ganha seu cartão com entradas, saídas e resultado."
+            actionLabel={canWrite ? "Cadastrar conta" : undefined}
             actionHref={canWrite ? "/financeiro/cadastros?aba=contas&novo=1" : undefined}
-            icon="inbox"
           />
         </div>
       </>
     );
   }
 
-  const expenseTotal =
-    summary.deductions + summary.direct_costs + summary.operating_expenses + summary.other_expenses;
-  const revenueTotal = summary.own_revenue + summary.other_revenue;
-  const regimeLabel = FIN_REGIME_LABELS[filters.regime];
-  const comparison = period.previous ? `vs. ${period.previous.label}` : undefined;
-  const pendingCount = summary.commissions_not_in_cash_count;
+  const scale = Math.max(...cards.map((card) => Math.max(card.cash_in, card.cash_out)), 0);
+  const stateOf = (month: number): MonthState =>
+    year < currentYear || (year === currentYear && month < currentMonth)
+      ? "past"
+      : year === currentYear && month === currentMonth
+        ? "current"
+        : "future";
+  const yearResult = cards.reduce((sum, card) => sum + card.result, 0);
+  const yearIn = cards.reduce((sum, card) => sum + card.cash_in, 0);
+  const yearOut = cards.reduce((sum, card) => sum + card.cash_out, 0);
 
   return (
     <>
       <PageHeader
         title="Controle Financeiro"
-        description={`${period.label} · resultado pelo regime de ${regimeLabel.toLowerCase()}. Valores de terceiros (aluguéis a repassar, parcelas de corretores, cauções) nunca contam como receita.`}
+        description="Clique em um mês para ver entradas, saídas, extrato e resultado daquele mês."
         actions={
-          canWrite ? (
-            <Button asChild>
-              <Link href="/financeiro/lancamentos?novo=1">
-                <Plus />
-                Novo lançamento
-              </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {canWrite ? <QuickEntryButton lookups={lookups} /> : null}
+            <Button asChild variant="secondary">
+              <a href={`/api/financeiro/relatorios?tipo=ano&ano=${year}`} target="_blank" rel="noopener">
+                <FileText />
+                Relatório do ano
+              </a>
             </Button>
-          ) : null
+          </div>
         }
       />
 
-      <FinanceFilters years={financeYears()} accounts={accounts} categories={categories} />
-
-      {/* Saúde financeira em uma linha ------------------------------------ */}
-      <section aria-label="Posição de caixa" className="mb-5 grid gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <div className="surface-card relative overflow-hidden p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="label-caption flex items-center gap-1.5">
-                <Landmark className="size-3.5" />
-                Saldo em contas
-                <InfoTooltip
-                  label="Saldo em contas"
-                  content="Soma do saldo de todas as contas no livro-razão até o fim do período. Inclui dinheiro que pertence a terceiros (aluguéis a repassar, parcelas de corretores, cauções)."
-                />
-              </p>
-              <p className="mt-2 text-[34px] font-semibold leading-none tracking-[-0.03em] tabular">
-                {formatCurrency(summary.cash_balance)}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="label-caption">Disponível da imobiliária</p>
-              <p
-                className={cn(
-                  "mt-2 text-[22px] font-semibold leading-none tabular",
-                  summary.own_available < 0 && "text-danger",
-                )}
-              >
-                {formatCurrency(summary.own_available)}
-              </p>
-            </div>
+      {/* Situação de hoje */}
+      <section aria-label="Situação de hoje" className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Saldo nas contas hoje", value: summary.cash_balance, hint: "Tudo que está no banco e no caixa" },
+          {
+            label: "Dinheiro da imobiliária",
+            value: summary.own_available,
+            hint: "Saldo menos o que é de proprietários e corretores",
+            strong: true,
+          },
+          { label: "A pagar", value: summary.payables_open + summary.third_party_obligations, hint: "Contas e repasses em aberto" },
+          { label: "A receber", value: summary.receivables_open, hint: "Comissões e taxas em aberto" },
+        ].map((item) => (
+          <div
+            key={item.label}
+            className={cn(
+              "rounded-2xl border px-4 py-3",
+              item.strong ? "border-accent-border bg-accent-soft" : "border-border bg-surface",
+            )}
+          >
+            <p className={cn("text-[11.5px] font-medium", item.strong ? "text-accent" : "text-subtle")}>{item.label}</p>
+            <p className={cn("text-[20px] font-semibold tabular", item.value < 0 && "text-danger", item.strong && item.value >= 0 && "text-accent")}>
+              {formatCurrency(item.value)}
+            </p>
+            <p className="text-[11.5px] text-subtle">{item.hint}</p>
           </div>
-
-          {/* Barra de composição do saldo: próprio x terceiros x cauções */}
-          {summary.cash_balance > 0 ? (
-            <div className="mt-5">
-              <div className="flex h-2 overflow-hidden rounded-full bg-surface-muted">
-                <span
-                  className="h-full bg-foreground/80"
-                  style={{ width: `${Math.max(0, Math.min(100, (summary.own_available / summary.cash_balance) * 100))}%` }}
-                />
-                <span
-                  className="h-full bg-warning/70"
-                  style={{ width: `${Math.max(0, Math.min(100, (summary.third_party_obligations / summary.cash_balance) * 100))}%` }}
-                />
-                <span
-                  className="h-full bg-info/60"
-                  style={{ width: `${Math.max(0, Math.min(100, (summary.deposits_held / summary.cash_balance) * 100))}%` }}
-                />
-              </div>
-              <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-muted">
-                <li className="flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-foreground/80" /> Próprio {formatCurrency(summary.own_available)}
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-warning/70" /> A repassar {formatCurrency(summary.third_party_obligations)}
-                </li>
-                <li className="flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-info/60" /> Cauções {formatCurrency(summary.deposits_held)}
-                </li>
-              </ul>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <MetricCard
-            label="Resultado do período"
-            value={formatCurrency(summary.net_result)}
-            variation={previous ? variation(summary.net_result, previous.net_result) : undefined}
-            comparisonLabel={comparison}
-            formula="Receita própria + outras receitas − deduções − custos diretos − despesas operacionais − outras despesas. Não inclui valores de terceiros, cauções nem movimentos de sócios."
-            className={summary.net_result < 0 ? "border-danger/30" : undefined}
-          />
-          <MetricCard
-            label="Previsão de caixa (30 dias)"
-            value={formatCurrency(summary.forecast_30_balance)}
-            hint="Saldo de hoje + a receber − a pagar com vencimento em até 30 dias"
-            formula="Considera apenas títulos cadastrados (inclusive previsões). Nenhuma receita é inventada."
-            className={summary.forecast_30_balance < 0 ? "border-danger/30" : undefined}
-          />
-        </div>
+        ))}
       </section>
 
-      {/* Indicadores ------------------------------------------------------ */}
-      <section aria-label="Indicadores do período" className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          label="Entradas recebidas"
-          value={formatCurrency(summary.cash_in)}
-          variation={previous ? variation(summary.cash_in, previous.cash_in) : undefined}
-          comparisonLabel={comparison}
-          formula="Soma das baixas de entradas no período (inclui valores de terceiros que passaram pelo caixa)."
-        />
-        <MetricCard
-          label="Saídas pagas"
-          value={formatCurrency(summary.cash_out)}
-          variation={previous ? variation(summary.cash_out, previous.cash_out) : undefined}
-          comparisonLabel={comparison}
-          invertVariationColor
-          formula="Soma das baixas de saídas no período (inclui repasses a proprietários e corretores)."
-        />
-        <MetricCard
-          label="Receita própria"
-          value={formatCurrency(revenueTotal)}
-          variation={previous ? variation(revenueTotal, previous.own_revenue + previous.other_revenue) : undefined}
-          comparisonLabel={comparison}
-          emphasis
-          formula="Somente categorias de receita própria e outras receitas. Taxas de administração e a parte da imobiliária nas comissões entram aqui; aluguel do proprietário e parcela de corretores não."
-        />
-        <MetricCard
-          label="Despesas e custos"
-          value={formatCurrency(expenseTotal)}
-          variation={previous ? variation(expenseTotal, previous.deductions + previous.direct_costs + previous.operating_expenses + previous.other_expenses) : undefined}
-          comparisonLabel={comparison}
-          invertVariationColor
-          formula="Deduções + custos diretos + despesas operacionais + outras despesas. Retiradas de sócios ficam de fora."
-        />
-        <MetricCard
-          label="Contas a receber"
-          value={formatCurrency(summary.receivables_open)}
-          hint={
-            summary.receivables_overdue > 0
-              ? `${formatCurrency(summary.receivables_overdue)} em atraso`
-              : "Nenhum recebível em atraso"
-          }
-          className={summary.receivables_overdue > 0 ? "border-warning/40" : undefined}
-        />
-        <MetricCard
-          label="Contas a pagar"
-          value={formatCurrency(summary.payables_open)}
-          hint={summary.payables_overdue > 0 ? `${formatCurrency(summary.payables_overdue)} vencidos` : "Nenhuma conta vencida"}
-          formula="Obrigações da própria imobiliária ainda não pagas. Repasses a terceiros aparecem no indicador ao lado."
-          className={summary.payables_overdue > 0 ? "border-danger/30" : undefined}
-        />
-        <MetricCard
-          label="Obrigações com terceiros"
-          value={formatCurrency(summary.third_party_obligations)}
-          hint="Repasses a proprietários e corretores"
-          formula="Dinheiro recebido que pertence a terceiros e ainda não foi repassado."
-        />
-        <MetricCard
-          label="Comissões pendentes"
-          value={formatCurrency(summary.broker_payouts_pending)}
-          hint={
-            pendingCount > 0
-              ? `${formatInteger(pendingCount)} comissões do período ainda fora do caixa`
-              : "Repasses a corretores em aberto"
-          }
-          formula="Repasses de comissão a corretores ainda não pagos. O texto abaixo indica comissões registradas que ainda não foram lançadas no caixa."
-        />
-      </section>
+      {/* Ano */}
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-[18px] font-semibold">{year}</h2>
+          <p className="text-[12.5px] text-muted">
+            Resultado do ano <strong className={cn("tabular", yearResult < 0 ? "text-danger" : "text-positive")}>{formatCurrency(yearResult)}</strong>
+            {" · "}entrou {formatCurrency(yearIn)} · saiu {formatCurrency(yearOut)}
+          </p>
+        </div>
+        <nav aria-label="Ano" className="flex gap-1">
+          {[currentYear - 1, currentYear, currentYear + 1].map((option) => (
+            <Link
+              key={option}
+              href={option === currentYear ? "/financeiro" : `/financeiro?ano=${option}`}
+              aria-current={option === year ? "page" : undefined}
+              className={cn(
+                "rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors",
+                option === year ? "bg-foreground text-surface" : "text-muted hover:bg-surface-muted hover:text-foreground",
+              )}
+            >
+              {option}
+            </Link>
+          ))}
+        </nav>
+      </div>
 
-      {/* Alertas (central de inteligência) ------------------------------ */}
+      <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {cards.map((card) => (
+          <MonthCard key={card.month} year={year} card={card} state={stateOf(card.month)} scale={scale} />
+        ))}
+      </div>
+
       {insights.length ? (
-        <section aria-label="Alertas" className="mb-5">
+        <section aria-label="Alertas" className="mb-6">
           <div className="mb-2 flex items-center justify-between">
-            <p className="label-caption">Alertas</p>
+            <h2 className="text-[15px] font-semibold">Pontos de atenção</h2>
             <Link href="/financeiro/inteligencia" className="text-[12.5px] font-medium text-accent hover:underline">
               Ver todos ({insights.length}) →
             </Link>
@@ -276,140 +151,14 @@ export default async function FinanceDashboardPage({
         </section>
       ) : null}
 
-      {/* Gráficos --------------------------------------------------------- */}
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <div>
-              <CardTitle>Receitas, despesas e resultado</CardTitle>
-              <CardDescription>Últimos 12 meses · regime de {regimeLabel.toLowerCase()}</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ResultEvolutionChart series={monthly} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Composição da receita própria</CardTitle>
-              <CardDescription>{period.label}</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <RevenueCompositionChart rows={revenueByCategory} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Entradas x saídas</CardTitle>
-              <CardDescription>Dinheiro que efetivamente passou pelas contas</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CashInOutChart series={monthly} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Fluxo de caixa acumulado</CardTitle>
-              <CardDescription>Saldo consolidado no fim de cada mês</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CashBalanceChart series={monthly} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Despesas por categoria</CardTitle>
-              <CardDescription>{period.label}</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <CategoryBreakdown
-              rows={expensesByCategory.filter((row) => row.nature !== "third_party" && row.nature !== "deposit" && row.nature !== "equity")}
-              emptyMessage="Nenhuma despesa no período."
-            />
-          </CardContent>
-        </Card>
-
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <div>
-              <CardTitle>Realizado x previsto</CardTitle>
-              <CardDescription>Títulos com vencimento no mês comparados às baixas efetivas</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <PlannedVsActualChart series={monthly} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div>
-              <CardTitle>Tendência de rentabilidade</CardTitle>
-              <CardDescription>Resultado ÷ receitas, mês a mês</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <MarginTrendChart series={monthly} />
-          </CardContent>
-        </Card>
+      <div className="flex flex-wrap gap-2 text-[12.5px]">
+        <Link href="/financeiro/fluxo" className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-muted hover:text-foreground">
+          <LineChart className="size-3.5" /> Fluxo de caixa dos próximos meses
+        </Link>
+        <Link href="/financeiro/painel" className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-muted hover:text-foreground">
+          <BarChart3 className="size-3.5" /> Painel analítico com gráficos
+        </Link>
       </div>
-
-      {/* Saldos por conta ------------------------------------------------- */}
-      <Card className="mt-4">
-        <CardHeader>
-          <div>
-            <CardTitle>Saldos por conta</CardTitle>
-            <CardDescription>Posição de hoje no livro-razão</CardDescription>
-          </div>
-          <Link
-            href="/financeiro/cadastros?aba=contas"
-            className="flex items-center gap-1 text-[12.5px] font-medium text-accent hover:underline"
-          >
-            Gerenciar contas
-            <ArrowRight className="size-3.5" />
-          </Link>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ul className="divide-y divide-border">
-            {balances.map((account) => (
-              <li key={account.account_id} className="flex items-center justify-between gap-3 px-5 py-3">
-                <Link
-                  href={`/financeiro/lancamentos?conta=${account.account_id}`}
-                  className="min-w-0 hover:text-accent"
-                >
-                  <p className="truncate text-[13px] font-medium">
-                    {account.name}
-                    {account.is_active ? null : <span className="ml-2 text-xs text-subtle">(inativa)</span>}
-                  </p>
-                  <p className="text-[11.5px] text-subtle">{FIN_ACCOUNT_KIND_LABELS[account.kind]}</p>
-                </Link>
-                <span className={cn("text-[14px] font-semibold tabular", account.balance < 0 && "text-danger")}>
-                  {formatCurrency(account.balance)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </CardContent>
-      </Card>
-
-      <p className="mt-4 flex items-start gap-1.5 text-[11.5px] text-subtle">
-        <Info className="mt-0.5 size-3.5 shrink-0" />
-        Todos os números desta tela vêm das mesmas funções de relatório do banco; exportações e relatórios usam exatamente a
-        mesma fonte.
-      </p>
     </>
   );
 }
-

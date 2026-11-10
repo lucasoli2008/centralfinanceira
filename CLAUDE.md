@@ -28,6 +28,11 @@ aluguel, taxa de administração e repasse**, conciliação bancária por arquiv
 gerencial, fluxo de caixa e previsão, fechamento mensal, relatórios. Regras em
 `docs/FINANCIAL_RULES.md` §Controle Financeiro.
 
+Organização da interface (nov/2026): a tela inicial do módulo é o **ano em 12 cartões de mês**; o
+dia a dia acontece dentro do mês (`/financeiro/mes/AAAA-MM`). Lançamento rápido com repetição fixa
+ou variável. Vendas/Locações têm a bolinha **Recebido**, que lança a comissão no caixa na data digitada.
+Detalhes em `docs/FINANCIAL_RULES.md` §Controle Financeiro simplificado.
+
 Princípio inegociável: **dinheiro de terceiros nunca é receita**. Aluguel recebido de R$ 10.000 com
 taxa de R$ 1.000 = caixa +10.000, receita própria 1.000, obrigação de repasse 9.000.
 
