@@ -8,10 +8,24 @@ import type { FinYearCardRow } from "@/types/database";
 export type MonthState = "current" | "past" | "future";
 
 /** Caixinha de um mês: entradas, saídas e quanto sobrou. Clique abre o mês. */
-export function MonthCard({ year, card, state }: { year: number; card: FinYearCardRow; state: MonthState }) {
+export function MonthCard({
+  year,
+  card,
+  forecast,
+  state,
+}: {
+  year: number;
+  card: FinYearCardRow;
+  /** Recorrências ainda não pagas do mês (estimativa). */
+  forecast?: { expenses: number; incomes: number };
+  state: MonthState;
+}) {
   const href = `/financeiro/mes/${year}-${String(card.month).padStart(2, "0")}`;
-  const hasMovement = card.revenue !== 0 || card.expenses !== 0;
-  const left = card.revenue - card.expenses;
+  const incomes = card.revenue + (forecast?.incomes ?? 0);
+  const expenses = card.expenses + (forecast?.expenses ?? 0);
+  const estimated = (forecast?.expenses ?? 0) + (forecast?.incomes ?? 0) > 0;
+  const hasMovement = incomes !== 0 || expenses !== 0;
+  const left = incomes - expenses;
 
   return (
     <Link
@@ -38,14 +52,14 @@ export function MonthCard({ year, card, state }: { year: number; card: FinYearCa
         <dl className="mt-4 space-y-1.5 text-[13px]">
           <div className="flex items-center justify-between">
             <dt className="text-muted">Entradas</dt>
-            <dd className="font-semibold tabular text-info">{formatCurrency(card.revenue)}</dd>
+            <dd className="font-semibold tabular text-info">{formatCurrency(incomes)}</dd>
           </div>
           <div className="flex items-center justify-between">
             <dt className="text-muted">Saídas</dt>
-            <dd className="font-semibold tabular">{formatCurrency(card.expenses)}</dd>
+            <dd className="font-semibold tabular">{formatCurrency(expenses)}</dd>
           </div>
           <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
-            <dt className="font-medium">{left < 0 ? "Faltou" : "Sobrou"}</dt>
+            <dt className="font-medium">{left < 0 ? (estimated ? "Vai faltar" : "Faltou") : estimated ? "Deve sobrar" : "Sobrou"}</dt>
             <dd className={cn("text-[16px] font-semibold tabular", left < 0 ? "text-danger" : "text-positive")}>{formatCurrency(left)}</dd>
           </div>
         </dl>
@@ -59,7 +73,11 @@ export function MonthCard({ year, card, state }: { year: number; card: FinYearCa
         </p>
       )}
 
-      {card.payables_count > 0 && hasMovement ? (
+      {estimated ? (
+        <p className="mt-2 text-[11px] text-subtle">Inclui {formatCurrency(forecast?.expenses ?? 0)} em contas fixas previstas</p>
+      ) : null}
+
+      {card.payables_count > 0 && hasMovement && !estimated ? (
         <p className="mt-auto pt-3 text-[11.5px] text-warning">
           {card.payables_count} a pagar · {formatCurrency(card.payables_amount)}
         </p>

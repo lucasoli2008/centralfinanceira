@@ -266,3 +266,36 @@ export async function getMonthSimple(from: string, to: string): Promise<{ income
     })),
   };
 }
+
+/**
+ * Saídas e entradas PREVISTAS por mês (recorrências ainda não pagas). Os cartões
+ * do ano somam isto às realizadas para mostrar a estimativa dos meses à frente.
+ */
+export async function getYearForecasts(year: number): Promise<Map<number, { expenses: number; incomes: number }>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("fin_entries_detail")
+    .select("kind, remaining_amount, competence_date, nature")
+    .eq("status", "forecast")
+    .is("operation_id", null)
+    .not("nature", "in", "(third_party,deposit)")
+    .gte("competence_date", `${year}-01-01`)
+    .lte("competence_date", `${year}-12-31`);
+  if (error) logServerError("finance.getYearForecasts", error);
+  const result = new Map<number, { expenses: number; incomes: number }>();
+  for (const row of (data ?? []) as { kind: string; remaining_amount: number; competence_date: string }[]) {
+    const month = Number(row.competence_date.slice(5, 7));
+    const current = result.get(month) ?? { expenses: 0, incomes: 0 };
+    if (row.kind === "expense") current.expenses += Number(row.remaining_amount);
+    if (row.kind === "income") current.incomes += Number(row.remaining_amount);
+    result.set(month, current);
+  }
+  return result;
+}
+
+/** Renova as previsões das recorrências (idempotente) — chamado ao abrir o controle. */
+export async function refreshRecurrenceForecasts(): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("app_fin_generate_recurrences", { p_horizon_days: 120, p_metadata: {} });
+  if (error) logServerError("finance.refreshRecurrenceForecasts", error);
+}

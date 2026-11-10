@@ -9,7 +9,7 @@ import { formatCurrency } from "@/lib/formatting/number";
 import { todayInTimezone } from "@/lib/formatting/date";
 import { cn } from "@/lib/utils";
 import { getFinLookups } from "@/server/queries/finance";
-import { getYearCards } from "@/server/queries/finance-month";
+import { getYearCards, getYearForecasts, refreshRecurrenceForecasts } from "@/server/queries/finance-month";
 import { MonthCard, type MonthState } from "@/features/finance/month-card";
 import { QuickEntryButton } from "@/features/finance/quick-entry-sheet";
 
@@ -23,7 +23,8 @@ export default async function FinanceYearPage({ searchParams }: { searchParams: 
   const [currentYear, currentMonth] = today.split("-").map(Number);
   const year = Number(params.ano) >= 2000 && Number(params.ano) <= 2100 ? Number(params.ano) : currentYear;
 
-  const [lookups, cards] = await Promise.all([getFinLookups(), getYearCards(year)]);
+  if (canWrite) await refreshRecurrenceForecasts();
+  const [lookups, cards, forecasts] = await Promise.all([getFinLookups(), getYearCards(year), getYearForecasts(year)]);
 
   const stateOf = (month: number): MonthState =>
     year < currentYear || (year === currentYear && month < currentMonth)
@@ -31,8 +32,8 @@ export default async function FinanceYearPage({ searchParams }: { searchParams: 
       : year === currentYear && month === currentMonth
         ? "current"
         : "future";
-  const yearIn = cards.reduce((sum, card) => sum + card.revenue, 0);
-  const yearOut = cards.reduce((sum, card) => sum + card.expenses, 0);
+  const yearIn = cards.reduce((sum, card) => sum + card.revenue + (forecasts.get(card.month)?.incomes ?? 0), 0);
+  const yearOut = cards.reduce((sum, card) => sum + card.expenses + (forecasts.get(card.month)?.expenses ?? 0), 0);
   const yearLeft = yearIn - yearOut;
 
   return (
@@ -81,7 +82,7 @@ export default async function FinanceYearPage({ searchParams }: { searchParams: 
 
       <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {cards.map((card) => (
-          <MonthCard key={card.month} year={year} card={card} state={stateOf(card.month)} />
+          <MonthCard key={card.month} year={year} card={card} forecast={forecasts.get(card.month)} state={stateOf(card.month)} />
         ))}
       </div>
 

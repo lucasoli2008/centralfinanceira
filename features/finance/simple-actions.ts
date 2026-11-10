@@ -10,6 +10,14 @@ import type { ActionResult } from "@/lib/action-result";
 
 async function defaultAccountId(): Promise<string | null> {
   const supabase = await createSupabaseServerClient();
+  const { data: accounts } = await supabase
+    .from("fin_accounts")
+    .select("id, kind")
+    .eq("is_active", true)
+    .order("created_at")
+    .limit(5);
+  const existing = (accounts ?? []) as { id: string; kind: string }[];
+  if (existing.length) return (existing.find((account) => account.kind === "checking") ?? existing[0]).id;
   const { data, error } = await supabase.rpc("app_fin_default_account", { p_metadata: await buildAuditMetadata() });
   if (error) {
     dbFailure("finance.defaultAccount", error);

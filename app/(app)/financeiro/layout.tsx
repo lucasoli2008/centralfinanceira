@@ -10,13 +10,10 @@ export default async function FinanceLayout({ children }: { children: React.Reac
   await requireFinance("view");
 
   // Banco sem as migrações do financeiro: aviso claro em vez de telas vazias.
-  // Confere a coluna e a função das migrações mais recentes (0013 e 0014).
+  // Confere a coluna da 0013 (a 0014 só acrescenta "parar de repetir", que avisa se faltar).
   const supabase = await createSupabaseServerClient();
-  const [column, fn] = await Promise.all([
-    supabase.from("fin_recurrences").select("value_mode").limit(1),
-    supabase.rpc("app_fin_stop_recurrence", { p_recurrence_id: "00000000-0000-0000-0000-000000000000" }),
-  ]);
-  const missing = [column.error, fn.error].some((error) => error && MISSING.includes(error.code ?? ""));
+  const column = await supabase.from("fin_recurrences").select("value_mode").limit(1);
+  const missing = Boolean(column.error && MISSING.includes(column.error.code ?? ""));
   if (missing) {
     return (
       <Callout tone="warning">
