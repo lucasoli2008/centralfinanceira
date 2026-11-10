@@ -188,3 +188,12 @@ Defesa em profundidade:
 - Todas as mudanças passam por `audit_row_change` (`audit_logs`).
 - Comprovantes no bucket privado `finance-attachments`, caminho `{org}/{lançamento}/{uuid}-{nome}`;
   leitura por URL assinada de curta duração; policies `fin_can` view/write.
+
+### Fechamento e relatórios (Fase 3)
+
+- Fechar mês: `fin_can(org,'close')` (gestor, financeiro, admin). Reabrir: `fin_can(org,'admin')`.
+- `fin_period_closes` segue o mesmo padrão: SELECT com `view`, escrita só dentro da RPC.
+- Exportações (`/api/financeiro/relatorios`) exigem `requireFinance("view")` e leem pelas mesmas
+  consultas com RLS — quem não vê o financeiro não baixa nada.
+- Conciliação e regras (Fase 2) seguem o padrão: escrita só por RPC `app_fin_*`; importar e
+  conciliar exigem `write`.

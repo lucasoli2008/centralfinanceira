@@ -832,3 +832,51 @@ export interface FinRecurrenceRow {
   created_at: string;
   updated_at: string;
 }
+
+// -----------------------------------------------------------------------------
+// Controle Financeiro — Fase 3 (DRE, fluxo projetado, fechamento, inteligência)
+// -----------------------------------------------------------------------------
+export interface FinCashProjectionRow {
+  bucket_start: string | null;
+  bucket_end: string | null;
+  inflow: number;
+  outflow: number;
+  third_party_out: number;
+  forecast_in: number;
+  forecast_out: number;
+  opening_balance: number;
+  closing_balance: number;
+}
+
+export interface FinPeriodCloseRow {
+  id: string;
+  year: number;
+  month: number;
+  closed_at: string;
+  closed_by: string | null;
+  notes: string | null;
+  snapshot: { caixa?: FinSummaryRow; competencia?: FinSummaryRow } & Record<string, unknown>;
+  reopened_at: string | null;
+  reopened_by: string | null;
+  reopen_reason: string | null;
+}
+
+export interface FinCloseCheckRow {
+  check_key: string;
+  label: string;
+  severity: "warning" | "info";
+  quantity: number;
+  amount: number;
+  href: string;
+}
+
+export type FinInsightSeverity = "critical" | "warning" | "info" | "positive";
+
+export interface FinInsightRow {
+  insight_key: string;
+  severity: FinInsightSeverity;
+  title: string;
+  detail: string;
+  metric: number | null;
+  href: string;
+}

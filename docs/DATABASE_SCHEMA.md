@@ -320,3 +320,16 @@ RPCs: `app_fin_import_statement`, `app_fin_match_line`, `app_fin_confirm_suggest
 `app_fin_settle_from_line`, `app_fin_create_from_line`, `app_fin_create_from_rules`,
 `app_fin_unmatch_line`, `app_fin_ignore_line`, `app_fin_save_rule`, `app_fin_save_recurrence`,
 `app_fin_generate_recurrences`. `fin_suggest_category` passou a consultar as regras primeiro.
+
+### Fase 3 (0012_finance_reports_close.sql)
+
+| Objeto | Papel |
+|---|---|
+| `fin_period_closes` | fechamentos (ano, mês, retrato em `snapshot`, reabertura com motivo) |
+| trigger `fin_ledger_batches_closed_period` | bloqueia lotes com data em mês fechado (CF001) |
+| `fin_close_checklist(ano, mês)` | pendências do mês |
+| `app_fin_close_period` / `app_fin_reopen_period` | fechar (close) / reabrir (admin) |
+| `fin_report_dre(de, até, regime)` | DRE por categoria e mês |
+| `fin_cash_projection(dias, agrupamento, previsões)` | fluxo projetado |
+| `fin_insights()` | alertas da central de inteligência |
+| `fin_brl(numeric)` | formata reais no padrão brasileiro, independente do locale |

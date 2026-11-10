@@ -14,6 +14,7 @@ import {
 import { FIN_NATURES } from "@/lib/validation/finance";
 import { MetricCard } from "@/components/finance/metric-card";
 import { EntriesTable } from "./entries-table";
+import { ExportLinks } from "./export-links";
 import { EntryDetailHost } from "./entry-detail-host";
 import { FinanceFilters } from "./finance-filters";
 import { financeYears, resolveFinanceFilters, validUuid, type FinanceSearchParams } from "./filters";
@@ -95,7 +96,19 @@ export async function FinanceEntriesPage({ mode, searchParams }: { mode: Mode; s
 
   return (
     <>
-      <PageHeader title={copy.title} description={copy.description} />
+      <PageHeader
+        title={copy.title}
+        description={copy.description}
+        actions={
+          mode === "ledger" ? (
+            <ExportLinks
+              tipo="lancamentos"
+              pdf={false}
+              params={{ periodo: searchParams.periodo, ano: searchParams.ano, mes: searchParams.mes, de: searchParams.de, ate: searchParams.ate }}
+            />
+          ) : null
+        }
+      />
 
       <FinanceFilters
         years={financeYears()}

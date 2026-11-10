@@ -245,3 +245,49 @@ Ambos vêm de `fin_pl_items`; o sinal vem de `fin_result_sign`.
   inicial (sem deriva de fim de mês). Geram **previsões** (`is_forecast`, sem partidas) até 90 dias.
   Editar cancela as previsões futuras intocadas e refaz; ocorrências já pagas ou confirmadas não se
   repetem.
+
+### DRE gerencial (Fase 3, migração 0012)
+
+Fonte: `fin_report_dre(de, até, regime)` — soma por categoria e mês, com sinal de efeito no caixa
+(+ entrada, − saída), a partir de `fin_pl_items` (a mesma base do resumo). A montagem em
+`lib/finance/dre.ts` só soma:
+
+```
+Receita operacional bruta            (own_revenue)
+(−) Deduções e impostos               (deduction)
+= Receita operacional líquida
+(−) Custos diretos                    (direct_cost)
+= Resultado bruto
+(−) Despesas operacionais             (operating_expense)
+= Resultado operacional
+(+) Outras receitas                   (other_revenue)
+(−) Outras despesas                   (other_expense)
+= Resultado líquido                   == fin_report_summary.net_result
+Margem líquida = resultado líquido ÷ receita bruta (— sem receita)
+```
+
+Fora do resultado, em memória: valores de terceiros, cauções e movimentos de sócios.
+
+### Fluxo de caixa projetado
+
+`fin_cash_projection(dias, dia|semana|mês, incluir_previsões)`: saldo de hoje + títulos em aberto
+(a receber +, a pagar −, inclui repasses e, se marcado, previsões) pela data de vencimento. A
+primeira linha reúne os **vencidos**. O saldo final em 30 dias por dia é igual a
+`forecast_30_balance` do painel (testado).
+
+### Fechamento mensal
+
+- Só fecha mês já terminado; perfis `gestor`, `financeiro`, `admin`.
+- Bloqueio em um único ponto: trigger antes de inserir em `fin_ledger_batches`. Como todo efeito
+  no razão gera lote (lançar, editar valor/categoria/data, baixar, estornar, cancelar), nada com
+  data no mês fechado passa. Erro `CF001`.
+- O fechamento guarda um retrato (`snapshot`): resumo nos dois regimes, checklist e saldos.
+- Reabrir: só `admin`, justificativa de 10+ caracteres, auditado. O histórico de fechamentos fica.
+- Previsões e conciliação (que não geram lote) continuam possíveis num mês fechado.
+
+### Central de inteligência
+
+`fin_insights()` — alertas determinísticos, cada um com a regra exibida na tela: disponível próprio
+negativo, caixa projetado negativo, repasses a terceiros vencidos, contas vencidas, previsões
+passadas, extrato pendente > 7 dias, comissões fora do caixa, mês anterior sem fechamento,
+tendência do resultado, despesa > 130% da média de 3 meses. Nenhum alerta executa ação.

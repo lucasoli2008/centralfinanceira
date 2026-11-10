@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Info, Landmark, Plus } from "lucide-react";
+import { ArrowRight, Info, Landmark, Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { MetricCard } from "@/components/finance/metric-card";
@@ -22,6 +22,8 @@ import {
   listFinCategories,
 } from "@/server/queries/finance";
 import { FinanceFilters } from "@/features/finance/finance-filters";
+import { InsightList } from "@/features/finance/insight-list";
+import { getFinInsights } from "@/server/queries/finance-reports";
 import { financeYears, resolveFinanceFilters, type FinanceSearchParams } from "@/features/finance/filters";
 import {
   CashBalanceChart,
@@ -51,7 +53,7 @@ export default async function FinanceDashboardPage({
   const twelve = trailingTwelveMonths(period.to);
   const canWrite = financeCan(context.financeRole, "write");
 
-  const [accounts, categories, summary, previous, monthly, expensesByCategory, revenueByCategory, balances] =
+  const [accounts, categories, summary, previous, monthly, expensesByCategory, revenueByCategory, balances, insights] =
     await Promise.all([
       listFinAccounts(),
       listFinCategories(),
@@ -63,6 +65,7 @@ export default async function FinanceDashboardPage({
       getFinByCategory(filters, "expense"),
       getFinByCategory(filters, "income"),
       getFinAccountBalances(),
+      getFinInsights(),
     ]);
 
   if (accounts.length === 0) {
@@ -260,29 +263,16 @@ export default async function FinanceDashboardPage({
         />
       </section>
 
-      {/* Alertas ---------------------------------------------------------- */}
-      {summary.payables_overdue > 0 || summary.receivables_overdue > 0 || pendingCount > 0 || summary.forecast_30_balance < 0 ? (
-        <section aria-label="Alertas" className="mb-5 grid gap-2">
-          {summary.forecast_30_balance < 0 ? (
-            <Alert tone="danger" href="/financeiro/a-pagar?status=pending">
-              O saldo projetado para os próximos 30 dias fica negativo ({formatCurrency(summary.forecast_30_balance)}). Revise os pagamentos programados.
-            </Alert>
-          ) : null}
-          {summary.payables_overdue > 0 ? (
-            <Alert tone="danger" href="/financeiro/a-pagar?status=overdue">
-              {formatCurrency(summary.payables_overdue)} em contas a pagar já venceram.
-            </Alert>
-          ) : null}
-          {summary.receivables_overdue > 0 ? (
-            <Alert tone="warning" href="/financeiro/a-receber?status=overdue">
-              {formatCurrency(summary.receivables_overdue)} a receber estão em atraso.
-            </Alert>
-          ) : null}
-          {pendingCount > 0 ? (
-            <Alert tone="info" href="/financeiro/imobiliario">
-              {formatInteger(pendingCount)} {pendingCount === 1 ? "comissão registrada no período ainda não foi lançada" : "comissões registradas no período ainda não foram lançadas"} no caixa ({formatCurrency(summary.commissions_not_in_cash)}).
-            </Alert>
-          ) : null}
+      {/* Alertas (central de inteligência) ------------------------------ */}
+      {insights.length ? (
+        <section aria-label="Alertas" className="mb-5">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="label-caption">Alertas</p>
+            <Link href="/financeiro/inteligencia" className="text-[12.5px] font-medium text-accent hover:underline">
+              Ver todos ({insights.length}) →
+            </Link>
+          </div>
+          <InsightList insights={insights.slice(0, 3)} explain={false} />
         </section>
       ) : null}
 
@@ -423,30 +413,3 @@ export default async function FinanceDashboardPage({
   );
 }
 
-function Alert({
-  tone,
-  href,
-  children,
-}: {
-  tone: "danger" | "warning" | "info";
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "flex items-center justify-between gap-3 rounded-control border px-3.5 py-2.5 text-[13px] transition-colors",
-        tone === "danger" && "border-danger/25 bg-danger-soft text-danger hover:border-danger/40",
-        tone === "warning" && "border-warning/25 bg-warning-soft text-warning hover:border-warning/40",
-        tone === "info" && "border-info/20 bg-info-soft text-info hover:border-info/40",
-      )}
-    >
-      <span className="flex items-start gap-2">
-        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-        {children}
-      </span>
-      <ArrowRight className="size-3.5 shrink-0" />
-    </Link>
-  );
-}

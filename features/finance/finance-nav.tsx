@@ -9,6 +9,10 @@ import {
   Building,
   Gauge,
   Library,
+  Lightbulb,
+  LineChart,
+  Lock,
+  Table2,
   ListChecks,
   Wand2,
 } from "lucide-react";
@@ -16,11 +20,15 @@ import { cn } from "@/lib/utils";
 
 const ITEMS = [
   { href: "/financeiro", label: "Painel", icon: Gauge, exact: true },
+  { href: "/financeiro/inteligencia", label: "Inteligência", icon: Lightbulb },
   { href: "/financeiro/lancamentos", label: "Lançamentos", icon: ArrowLeftRight },
   { href: "/financeiro/a-pagar", label: "A pagar", icon: ArrowUpFromLine },
   { href: "/financeiro/a-receber", label: "A receber", icon: ArrowDownToLine },
   { href: "/financeiro/conciliacao", label: "Conciliação", icon: ListChecks },
   { href: "/financeiro/imobiliario", label: "Imobiliário", icon: Building },
+  { href: "/financeiro/fluxo", label: "Fluxo de caixa", icon: LineChart },
+  { href: "/financeiro/dre", label: "DRE", icon: Table2 },
+  { href: "/financeiro/fechamento", label: "Fechamento", icon: Lock },
   { href: "/financeiro/automacao", label: "Automação", icon: Wand2 },
   { href: "/financeiro/cadastros", label: "Cadastros", icon: Library },
 ];

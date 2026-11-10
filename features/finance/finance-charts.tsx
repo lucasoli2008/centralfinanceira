@@ -428,3 +428,51 @@ export function RevenueCompositionChart({ rows }: { rows: FinCategoryTotalRow[] 
     </div>
   );
 }
+
+export interface ProjectionPoint {
+  label: string;
+  inflow: number;
+  outflow: number;
+  balance: number;
+}
+
+/** Fluxo projetado: entradas e saídas previstas por período e o saldo acumulado. */
+export function CashProjectionChart({ points }: { points: ProjectionPoint[] }) {
+  const lowest = points.reduce<ProjectionPoint | null>((min, point) => (min === null || point.balance < min.balance ? point : min), null);
+  return (
+    <div>
+      <Legend
+        items={[
+          { label: "Entradas previstas", color: IN_COLOR },
+          { label: "Saídas previstas", color: OUT_COLOR },
+          { label: "Saldo projetado", color: INK, value: lowest ? `mínimo ${formatCurrency(lowest.balance)}` : undefined },
+        ]}
+      />
+      <ResponsiveContainer width="100%" height={260}>
+        <ComposedChart
+          data={points.map((point) => ({ ...point, outflowNegative: -point.outflow }))}
+          margin={{ top: 6, right: 8, bottom: 0, left: 0 }}
+          barGap={2}
+        >
+          <CartesianGrid stroke={GRID} strokeDasharray="2 5" vertical={false} />
+          <XAxis {...xAxis} />
+          <YAxis {...yAxis} />
+          <ReferenceLine y={0} stroke="var(--danger)" strokeDasharray="3 3" />
+          <Tooltip content={<MoneyTooltip />} cursor={{ fill: "var(--surface-muted)", radius: 4 }} />
+          <Bar dataKey="inflow" name="Entradas" fill={IN_COLOR} radius={[4, 4, 2, 2]} maxBarSize={16} {...ANIMATION} />
+          <Bar dataKey="outflowNegative" name="Saídas" fill={OUT_COLOR} radius={[2, 2, 4, 4]} maxBarSize={16} {...ANIMATION} />
+          <Line
+            type="monotone"
+            dataKey="balance"
+            name="Saldo"
+            stroke={INK}
+            strokeWidth={2}
+            dot={false}
+            activeDot={{ r: 3.5, strokeWidth: 2, stroke: "var(--surface)" }}
+            {...ANIMATION}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}

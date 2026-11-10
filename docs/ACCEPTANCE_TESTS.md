@@ -155,5 +155,5 @@ real do projeto Supabase de teste.
 | 8 | Insert direto em `fin_postings` | bloqueado por RLS | automatizado |
 | 9 | Coerência | soma mensal = resumo; categorias = receita própria; caixa = soma do razão | automatizado |
 | 10 | Conciliação bancária por arquivo | importação idempotente, sugestão inequívoca, baixa a partir do extrato, estorno desfaz conciliação (`tests/db/reconciliation.spec.ts`, `tests/unit/statement-parsers.spec.ts`) | automatizado |
-| 11 | Fechamento mensal bloqueia lançamentos | Fase 3 | pendente |
-| 12 | Relatórios PDF/Excel batem com a tela | Fase 3 | pendente |
+| 11 | Fechamento mensal bloqueia lançamentos | lançar, baixar e estornar com data no mês fechado são recusados; só admin reabre com motivo (`tests/db/reports-close.spec.ts`) | automatizado |
+| 12 | Relatórios PDF/Excel batem com a tela | DRE = resultado do resumo; Excel e PDF gerados das mesmas estruturas (`tests/unit/dre.spec.ts`, `finance-xlsx.spec.ts`, `finance-pdf-render.spec.ts`) | automatizado |
