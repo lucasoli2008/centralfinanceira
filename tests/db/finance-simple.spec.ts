@@ -252,7 +252,7 @@ describe("migrações reaplicáveis", () => {
     const fs = await import("node:fs/promises");
     const path = await import("node:path");
     const dir = path.join(process.cwd(), "supabase", "migrations");
-    for (const file of ["0010_finance_core.sql", "0011_finance_reconciliation.sql", "0012_finance_reports_close.sql", "0013_finance_simple.sql", "0014_finance_month_simple.sql", "0015_finance_admin_commissions.sql"]) {
+    for (const file of ["0010_finance_core.sql", "0011_finance_reconciliation.sql", "0012_finance_reports_close.sql", "0013_finance_simple.sql", "0014_finance_month_simple.sql", "0015_finance_admin_commissions.sql", "0016_finance_admin_commissions_offset.sql"]) {
       await db.exec(await fs.readFile(path.join(dir, file), "utf8"));
     }
     const count = await db.query<{ n: number }>(
@@ -326,5 +326,30 @@ describe("comissões recebidas em lote (0015)", () => {
   it("usuário autenticado não executa", async () => {
     const message = await expectError(rpc(org.ownerId, `select public.fin_admin_mark_commissions_received($1, '2026-09-30')`, [ownerEmail]));
     expect(message).toMatch(/permission denied|permissão/i);
+  });
+});
+
+describe("recebimento em lote com prazo por tipo (0016)", () => {
+  it("locação recebe 15 dias depois; venda no mesmo dia", async () => {
+    const make = async (entryType: "sale" | "rental", date: string) =>
+      (
+        await one<{ id: string }>(org.ownerId, `select public.app_save_entry($1::jsonb) as id`, [
+          JSON.stringify({
+            entry_type: entryType, entry_date: date, description: `${entryType} ${date}`, property_type: "residential",
+            base_amount: 2000, commission_mode: "percentage", commission_rate: 100,
+            splits: [],
+          }),
+        ])
+      ).id;
+    const rental = await make("rental", "2026-02-10");
+    const sale = await make("sale", "2026-02-11");
+    await db.query(`select public.fin_admin_mark_commissions_received($1, '2026-03-31', null, 15, 0)`, [ownerEmail]);
+    const ops = await db.query<{ commission_entry_id: string; reference_date: Date }>(
+      `select commission_entry_id, reference_date from public.fin_operations where cancelled_at is null and commission_entry_id = any($1::uuid[])`,
+      [[rental, sale]],
+    );
+    const dateOf = (id: string) => new Date(ops.rows.find((row) => row.commission_entry_id === id)!.reference_date).toISOString().slice(0, 10);
+    expect(dateOf(rental)).toBe("2026-02-25");
+    expect(dateOf(sale)).toBe("2026-02-11");
   });
 });

@@ -8,7 +8,7 @@
  *   node scripts/finance-import.mjs lote.json                  # prévia, não grava nada
  *   node scripts/finance-import.mjs lote.json --aplicar        # grava o lote inteiro
  *   node scripts/finance-import.mjs --desfazer <lote> --motivo "texto com 10+ caracteres"
- *   node scripts/finance-import.mjs --comissoes-ate 2026-09-30 [--conta Itaú]   # marca vendas/locações como recebidas
+ *   node scripts/finance-import.mjs --comissoes-ate 2026-09-30 [--conta Itaú] [--prazo-locacao 15] [--prazo-venda 0]   # marca vendas/locações como recebidas
  *
  * Opções: --email <login do usuário> (padrão: dono da conta) · --rotulo "Papéis de novembro"
  *
@@ -65,7 +65,13 @@ async function main() {
 
   const until = arg("--comissoes-ate");
   if (until) {
-    const result = await rpc(env, "fin_admin_mark_commissions_received", { p_user_email: email, p_until: until, p_account_name: arg("--conta") ?? null });
+    const result = await rpc(env, "fin_admin_mark_commissions_received", {
+      p_user_email: email,
+      p_until: until,
+      p_account_name: arg("--conta") ?? null,
+      p_rental_offset_days: Number(arg("--prazo-locacao") ?? 15),
+      p_sale_offset_days: Number(arg("--prazo-venda") ?? 0),
+    });
     console.log(`${result.count} comissão(ões) marcadas como recebidas · bruto ${money(result.gross_total)}`);
     if (result.skipped?.length) console.log(`Ficaram de fora (exceção financeira): ${result.skipped.map((item) => item.description).join("; ")}`);
     return;
