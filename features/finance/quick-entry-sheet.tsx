@@ -132,7 +132,7 @@ export function QuickEntrySheet({
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Novo lançamento</SheetTitle>
+          <SheetTitle>{kind === "income" ? "Nova entrada" : "Nova saída"}</SheetTitle>
           <SheetDescription>O essencial em poucos campos. O resto é opcional.</SheetDescription>
         </SheetHeader>
         <SheetBody className="space-y-4">
@@ -225,16 +225,17 @@ export function QuickEntrySheet({
                 <FormField label={isIncome ? "Recebido em" : "Pago em"} htmlFor="quick-paid-on">
                   <Input id="quick-paid-on" type="date" value={paidOn} onChange={(event) => setPaidOn(event.target.value)} />
                 </FormField>
-                <FormField label="Conta" htmlFor="quick-account">
-                  <NativeSelect id="quick-account" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-                    <option value="">Selecione…</option>
-                    {lookups.accounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </FormField>
+                {lookups.accounts.length > 1 ? (
+                  <FormField label="Conta" htmlFor="quick-account">
+                    <NativeSelect id="quick-account" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+                      {lookups.accounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.name}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </FormField>
+                ) : null}
               </div>
             ) : (
               <p className="mt-1 text-[12px] text-muted">Fica em “{isIncome ? "a receber" : "a pagar"}” até você registrar o pagamento.</p>
@@ -281,7 +282,7 @@ export function QuickEntrySheet({
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={submit} disabled={pending || !description.trim() || !amount || !categoryId || (paid && !accountId)}>
+          <Button onClick={submit} disabled={pending || !description.trim() || !amount || !categoryId}>
             {pending ? <Loader2 className="size-4 animate-spin" /> : null}
             Salvar
           </Button>

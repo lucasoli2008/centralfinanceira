@@ -310,3 +310,18 @@ tendência do resultado, despesa > 130% da média de 3 meses. Nenhum alerta exec
 - **Importação de documentos escaneados**: `scripts/finance-import.mjs` → `fin_admin_preview_import`
   / `fin_admin_import_entries` (só `service_role`). Executa `app_fin_quick_entry` em nome do usuário
   (auditoria normal), lote inteiro ou nada, com `fin_admin_cancel_import_batch` para desfazer.
+
+### Controle mensal (0014) — a tela que o dia a dia usa
+
+- `/financeiro`: o ano em 12 caixas (Entradas, Saídas, Sobrou). Sem menus de abas.
+- `/financeiro/mes/AAAA-MM`: três números (Entradas, Saídas, Sobrou/Faltou) e duas listas.
+  - **Saídas** (cadastro manual, agrupadas por grupo de categoria): gastos da imobiliária
+    (`kind = expense`, sem operação, natureza ≠ terceiros/caução), pela data do gasto (competência).
+  - **Entradas**: comissões marcadas como Recebido (parte da imobiliária = `own_amount` da operação),
+    aluguéis administrados (taxa) e entradas manuais.
+  - Sobrou = Entradas (parte da imobiliária) − Saídas.
+- **Conta padrão** (`app_fin_default_account`): criada sozinha na primeira vez que algo é pago, então
+  ninguém precisa cadastrar banco para começar.
+- **Parar de repetir** (`app_fin_stop_recurrence`): encerra a recorrência e cancela as previsões
+  futuras não pagas.
+- Ferramentas avançadas (extrato, DRE, fluxo, alertas, configurações) continuam em links discretos.

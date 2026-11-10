@@ -248,11 +248,11 @@ describe("importação administrativa (documentos escaneados)", () => {
 });
 
 describe("migrações reaplicáveis", () => {
-  it("reaplicar 0010–0013 não quebra (arquivo combinado pode ser colado de novo)", async () => {
+  it("reaplicar 0010–0014 não quebra (arquivo combinado pode ser colado de novo)", async () => {
     const fs = await import("node:fs/promises");
     const path = await import("node:path");
     const dir = path.join(process.cwd(), "supabase", "migrations");
-    for (const file of ["0010_finance_core.sql", "0011_finance_reconciliation.sql", "0012_finance_reports_close.sql", "0013_finance_simple.sql"]) {
+    for (const file of ["0010_finance_core.sql", "0011_finance_reconciliation.sql", "0012_finance_reports_close.sql", "0013_finance_simple.sql", "0014_finance_month_simple.sql"]) {
       await db.exec(await fs.readFile(path.join(dir, file), "utf8"));
     }
     const count = await db.query<{ n: number }>(
@@ -260,5 +260,29 @@ describe("migrações reaplicáveis", () => {
       [org.organizationId],
     );
     expect(count.rows[0].n).toBe(1);
+  });
+});
+
+describe("controle mensal simplificado (0014)", () => {
+  it("cria a conta padrão só quando não existe nenhuma", async () => {
+    const fresh = await seedOrganization(db, "Imobiliária Nova");
+    const first = await one<{ id: string }>(fresh.ownerId, `select public.app_fin_default_account() as id`);
+    const second = await one<{ id: string }>(fresh.ownerId, `select public.app_fin_default_account() as id`);
+    expect(second.id).toBe(first.id);
+    const existing = await one<{ id: string }>(org.ownerId, `select public.app_fin_default_account() as id`);
+    expect(existing.id).toBe(checking);
+  });
+
+  it("parar de repetir cancela as previsões futuras e mantém o que já foi pago", async () => {
+    const id = await quick({
+      kind: "expense", description: "Assinatura portal", amount: 199, category_id: salaryCategory,
+      date: MONTH_START, paid: true, account_id: checking, recurring: "fixed",
+    });
+    const { recurrence_id } = await entry(id);
+    const cancelled = await one<{ n: number }>(org.ownerId, `select public.app_fin_stop_recurrence($1) as n`, [recurrence_id]);
+    expect(Number(cancelled.n)).toBeGreaterThan(0);
+    expect((await entry(id)).status).toBe("settled");
+    const left = await db.query(`select 1 from public.fin_entries where recurrence_id = $1 and status = 'forecast'`, [recurrence_id]);
+    expect(left.rows).toHaveLength(0);
   });
 });

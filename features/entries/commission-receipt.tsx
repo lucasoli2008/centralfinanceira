@@ -141,9 +141,9 @@ export function CommissionReceiptToggle({
       <button
         type="button"
         onClick={start}
-        disabled={!canReceive || accounts.length === 0 || grossCommission <= 0}
+        disabled={!canReceive || grossCommission <= 0}
         aria-label={`Marcar ${description} como recebida`}
-        title={accounts.length === 0 ? "Cadastre uma conta no Controle Financeiro" : "Marcar como recebido"}
+        title="Marcar como recebido"
         className="group inline-flex items-center gap-1.5 rounded-full px-1 text-[11.5px] text-subtle transition-colors hover:text-positive disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Circle className="size-5 transition-transform group-hover:scale-110" />
@@ -174,21 +174,23 @@ export function CommissionReceiptToggle({
             <FormField label="Data em que o dinheiro entrou" htmlFor={`receipt-date-${entryId}`} required hint="Digite a data do extrato.">
               <Input id={`receipt-date-${entryId}`} type="date" value={date} onChange={(event) => setDate(event.target.value)} autoFocus />
             </FormField>
-            <FormField label="Conta" htmlFor={`receipt-account-${entryId}`} required>
-              <NativeSelect id={`receipt-account-${entryId}`} value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name}
-                  </option>
-                ))}
-              </NativeSelect>
-            </FormField>
+            {accounts.length > 1 ? (
+              <FormField label="Conta" htmlFor={`receipt-account-${entryId}`} required>
+                <NativeSelect id={`receipt-account-${entryId}`} value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormField>
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={confirm} disabled={pending || !date || !accountId} className={cn(!pending && "bg-positive hover:bg-positive/90")}>
+            <Button onClick={confirm} disabled={pending || !date} className={cn(!pending && "bg-positive hover:bg-positive/90")}>
               {pending ? <Loader2 className="size-4 animate-spin" /> : <Check />}
               Confirmar recebimento
             </Button>

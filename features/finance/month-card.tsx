@@ -1,111 +1,69 @@
 import Link from "next/link";
-import { ArrowUpRight, CalendarClock, FileWarning, Lock } from "lucide-react";
-import { formatCompactCurrency, formatCurrency } from "@/lib/formatting/number";
+import { ArrowUpRight, Lock } from "lucide-react";
+import { formatCurrency } from "@/lib/formatting/number";
 import { monthName } from "@/lib/formatting/date";
 import { cn } from "@/lib/utils";
 import type { FinYearCardRow } from "@/types/database";
 
 export type MonthState = "current" | "past" | "future";
 
-/** Cartão de um mês na visão do ano: resultado, entradas × saídas e pendências. */
-export function MonthCard({
-  year,
-  card,
-  state,
-  scale,
-}: {
-  year: number;
-  card: FinYearCardRow;
-  state: MonthState;
-  /** Maior valor de entrada/saída do ano — as barras são proporcionais a ele. */
-  scale: number;
-}) {
+/** Caixinha de um mês: entradas, saídas e quanto sobrou. Clique abre o mês. */
+export function MonthCard({ year, card, state }: { year: number; card: FinYearCardRow; state: MonthState }) {
   const href = `/financeiro/mes/${year}-${String(card.month).padStart(2, "0")}`;
-  const hasMovement = card.cash_in > 0 || card.cash_out > 0 || card.revenue > 0 || card.expenses > 0;
-  const width = (value: number) => (scale > 0 ? `${Math.max(value > 0 ? 4 : 0, Math.round((value / scale) * 100))}%` : "0%");
-  const status = card.is_closed
-    ? { label: "Fechado", tone: "bg-positive-soft text-positive", icon: Lock }
-    : state === "current"
-      ? { label: "Mês atual", tone: "bg-accent-soft text-accent", icon: CalendarClock }
-      : state === "future"
-        ? { label: "Futuro", tone: "bg-surface-muted text-subtle", icon: null }
-        : { label: "Aberto", tone: "bg-warning-soft text-warning", icon: null };
-  const StatusIcon = status.icon;
+  const hasMovement = card.revenue !== 0 || card.expenses !== 0;
+  const left = card.revenue - card.expenses;
 
   return (
     <Link
       href={href}
       className={cn(
-        "group relative flex min-h-[200px] flex-col rounded-2xl border bg-surface p-4 shadow-sm transition-all",
+        "group relative flex min-h-[190px] flex-col rounded-2xl border bg-surface p-5 shadow-sm transition-all",
         "hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
-        state === "current" ? "border-accent-border ring-1 ring-accent-border" : "border-border hover:border-border-strong",
+        state === "current" ? "border-accent-border ring-2 ring-accent-border" : "border-border hover:border-border-strong",
         state === "future" && !hasMovement && "bg-surface-sunken/60",
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-subtle">{year}</p>
-          <p className="text-[17px] font-semibold capitalize leading-tight">{monthName(card.month)}</p>
-        </div>
-        <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold", status.tone)}>
-          {StatusIcon ? <StatusIcon className="size-3" /> : null}
-          {status.label}
-        </span>
+        <p className="text-[18px] font-semibold capitalize leading-tight">{monthName(card.month)}</p>
+        {card.is_closed ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-positive-soft px-2 py-0.5 text-[10.5px] font-semibold text-positive">
+            <Lock className="size-3" /> Fechado
+          </span>
+        ) : state === "current" ? (
+          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10.5px] font-semibold text-accent">Mês atual</span>
+        ) : null}
       </div>
 
       {hasMovement ? (
-        <>
-          <div className="mt-3">
-            <p className="text-[11px] text-subtle">Resultado do mês</p>
-            <p className={cn("text-[22px] font-semibold leading-tight tabular", card.result < 0 ? "text-danger" : "text-positive")}>
-              {formatCurrency(card.result)}
-            </p>
+        <dl className="mt-4 space-y-1.5 text-[13px]">
+          <div className="flex items-center justify-between">
+            <dt className="text-muted">Entradas</dt>
+            <dd className="font-semibold tabular text-info">{formatCurrency(card.revenue)}</dd>
           </div>
-
-          <div className="mt-3 space-y-1.5" aria-hidden="true">
-            <div className="flex items-center gap-2 text-[11px]">
-              <span className="w-12 text-subtle">Entrou</span>
-              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-muted">
-                <span className="block h-full rounded-full bg-info" style={{ width: width(card.cash_in) }} />
-              </span>
-              <span className="w-16 text-right tabular text-muted">{formatCompactCurrency(card.cash_in)}</span>
-            </div>
-            <div className="flex items-center gap-2 text-[11px]">
-              <span className="w-12 text-subtle">Saiu</span>
-              <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-muted">
-                <span className="block h-full rounded-full bg-[var(--foreground-subtle)]" style={{ width: width(card.cash_out) }} />
-              </span>
-              <span className="w-16 text-right tabular text-muted">{formatCompactCurrency(card.cash_out)}</span>
-            </div>
+          <div className="flex items-center justify-between">
+            <dt className="text-muted">Saídas</dt>
+            <dd className="font-semibold tabular">{formatCurrency(card.expenses)}</dd>
           </div>
-          <p className="sr-only">
-            Entrou {formatCurrency(card.cash_in)}, saiu {formatCurrency(card.cash_out)}.
-          </p>
-        </>
+          <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+            <dt className="font-medium">{left < 0 ? "Faltou" : "Sobrou"}</dt>
+            <dd className={cn("text-[16px] font-semibold tabular", left < 0 ? "text-danger" : "text-positive")}>{formatCurrency(left)}</dd>
+          </div>
+        </dl>
       ) : (
         <p className="mt-4 flex-1 text-[12.5px] text-subtle">
-          {state === "future" ? "Nada lançado ainda. Recorrências aparecem aqui como previsão." : "Sem lançamentos neste mês."}
+          {state === "future"
+            ? card.payables_count > 0
+              ? `${card.payables_count} conta(s) fixa(s) prevista(s)`
+              : "Nada lançado ainda."
+            : "Sem lançamentos. Clique para cadastrar as saídas."}
         </p>
       )}
 
-      <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
-        {card.payables_count > 0 ? (
-          <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] text-muted">
-            {card.payables_count} a pagar · {formatCompactCurrency(card.payables_amount)}
-          </span>
-        ) : null}
-        {card.receivables_count > 0 ? (
-          <span className="rounded-full bg-info-soft px-2 py-0.5 text-[11px] text-info">
-            {card.receivables_count} a receber · {formatCompactCurrency(card.receivables_amount)}
-          </span>
-        ) : null}
-        {card.statement_pending > 0 ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] text-warning">
-            <FileWarning className="size-3" />
-            {card.statement_pending} no extrato
-          </span>
-        ) : null}
-      </div>
+      {card.payables_count > 0 && hasMovement ? (
+        <p className="mt-auto pt-3 text-[11.5px] text-warning">
+          {card.payables_count} a pagar · {formatCurrency(card.payables_amount)}
+        </p>
+      ) : null}
 
       <ArrowUpRight className="absolute bottom-4 right-4 size-4 text-subtle opacity-0 transition-opacity group-hover:opacity-100" />
     </Link>

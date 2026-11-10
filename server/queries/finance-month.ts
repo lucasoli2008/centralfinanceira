@@ -125,3 +125,144 @@ export async function getCommissionReceipts(entryIds: string[]): Promise<Map<str
     ]),
   );
 }
+
+// -----------------------------------------------------------------------------
+// Controle mensal simplificado: só Entradas e Saídas do mês
+// -----------------------------------------------------------------------------
+export interface MonthIncome {
+  id: string;
+  date: string;
+  description: string;
+  /** Valor que entrou no caixa (comissão inteira, aluguel inteiro...). */
+  gross: number;
+  /** Parte que fica para a imobiliária — é isto que conta como entrada. */
+  own: number;
+  /** Parte de corretores/proprietários (repasse). */
+  thirdParty: number;
+  source: "commission" | "rental" | "manual";
+  entryId: string | null;
+}
+
+export interface MonthExpense {
+  id: string;
+  date: string;
+  description: string;
+  amount: number;
+  remaining: number;
+  status: "forecast" | "open" | "partial" | "settled";
+  groupName: string;
+  categoryName: string;
+  counterpartyName: string | null;
+  recurrenceId: string | null;
+  valueMode: "fixed" | "variable" | null;
+  accountId: string | null;
+}
+
+export async function getMonthSimple(from: string, to: string): Promise<{ incomes: MonthIncome[]; expenses: MonthExpense[] }> {
+  const supabase = await createSupabaseServerClient();
+  const [operations, manualIncome, expenses] = await Promise.all([
+    supabase
+      .from("fin_operations")
+      .select("id, kind, description, reference_date, gross_amount, own_amount, third_party_amount")
+      .is("cancelled_at", null)
+      .gte("reference_date", from)
+      .lte("reference_date", to)
+      .order("reference_date"),
+    supabase
+      .from("fin_entries_detail")
+      .select("id, competence_date, description, amount, nature, status")
+      .eq("kind", "income")
+      .is("operation_id", null)
+      .in("nature", ["own_revenue", "other_revenue"])
+      .neq("status", "cancelled")
+      .gte("competence_date", from)
+      .lte("competence_date", to)
+      .order("competence_date"),
+    supabase
+      .from("fin_entries_detail")
+      .select(
+        "id, competence_date, description, amount, remaining_amount, status, nature, category_name, category_parent_name, counterparty_name, account_id",
+      )
+      .eq("kind", "expense")
+      .is("operation_id", null)
+      .not("nature", "in", "(third_party,deposit)")
+      .neq("status", "cancelled")
+      .gte("competence_date", from)
+      .lte("competence_date", to)
+      .order("competence_date"),
+  ]);
+  for (const result of [operations, manualIncome, expenses]) {
+    if (result.error) logServerError("finance.getMonthSimple", result.error);
+  }
+
+  type Op = { id: string; kind: string; description: string; reference_date: string; gross_amount: number; own_amount: number; third_party_amount: number };
+  type Income = { id: string; competence_date: string; description: string; amount: number };
+  type Expense = {
+    id: string;
+    competence_date: string;
+    description: string;
+    amount: number;
+    remaining_amount: number;
+    status: MonthExpense["status"];
+    category_name: string | null;
+    category_parent_name: string | null;
+    counterparty_name: string | null;
+    account_id: string | null;
+  };
+
+  const incomes: MonthIncome[] = [
+    ...((operations.data ?? []) as Op[]).map((op) => ({
+      id: op.id,
+      date: String(op.reference_date).slice(0, 10),
+      description: op.description.replace(/^Comissão recebida — /, ""),
+      gross: Number(op.gross_amount),
+      own: Number(op.own_amount),
+      thirdParty: Number(op.third_party_amount),
+      source: (op.kind === "commission_receipt" ? "commission" : "rental") as MonthIncome["source"],
+      entryId: null,
+    })),
+    ...((manualIncome.data ?? []) as Income[]).map((row) => ({
+      id: row.id,
+      date: row.competence_date,
+      description: row.description,
+      gross: Number(row.amount),
+      own: Number(row.amount),
+      thirdParty: 0,
+      source: "manual" as const,
+      entryId: row.id,
+    })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
+
+  const expenseRows = (expenses.data ?? []) as Expense[];
+  const recurrenceLinks = expenseRows.length
+    ? await supabase
+        .from("fin_entries")
+        .select("id, recurrence_id, fin_recurrences(value_mode)")
+        .in(
+          "id",
+          expenseRows.map((row) => row.id),
+        )
+        .not("recurrence_id", "is", null)
+    : { data: [], error: null };
+  if (recurrenceLinks.error) logServerError("finance.getMonthSimple.recurrences", recurrenceLinks.error);
+  type Link = { id: string; recurrence_id: string; fin_recurrences: { value_mode: "fixed" | "variable" } | null };
+  const links = new Map(((recurrenceLinks.data ?? []) as unknown as Link[]).map((link) => [link.id, link]));
+
+  return {
+    incomes,
+    expenses: expenseRows.map((row) => ({
+      id: row.id,
+      date: row.competence_date,
+      description: row.description,
+      amount: Number(row.amount),
+      remaining: Number(row.remaining_amount),
+      status: row.status,
+      groupName: row.category_parent_name ?? row.category_name ?? "Sem categoria",
+      categoryName: row.category_name ?? "Sem categoria",
+      counterpartyName: row.counterparty_name,
+      recurrenceId: links.get(row.id)?.recurrence_id ?? null,
+      valueMode: links.get(row.id)?.fin_recurrences?.value_mode ?? null,
+      accountId: row.account_id,
+    })),
+  };
+}
