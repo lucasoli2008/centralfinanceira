@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FileText, Settings2 } from "lucide-react";
+import { BarChart3, FileSpreadsheet, FileText, Landmark, LineChart, Settings2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { requireFinance } from "@/lib/auth/session";
@@ -54,6 +54,30 @@ export default async function FinanceYearPage({ searchParams }: { searchParams: 
         }
       />
 
+      <nav aria-label="Ferramentas do financeiro" className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {[
+          { href: "/financeiro/painel", label: "Gráficos", hint: "Evolução, categorias, margem", icon: BarChart3 },
+          { href: "/financeiro/dre", label: "Relatórios", hint: "DRE, PDF e Excel", icon: FileSpreadsheet },
+          { href: "/financeiro/fluxo", label: "Fluxo de caixa", hint: "Próximos meses", icon: LineChart },
+          { href: "/financeiro/conciliacao", label: "Extrato do banco", hint: "Importar e conferir", icon: Landmark },
+          { href: "/financeiro/cadastros", label: "Configurações", hint: "Contas, categorias, recorrências", icon: Settings2 },
+        ].map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="group flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 transition-all hover:-translate-y-0.5 hover:border-border-strong hover:shadow-sm"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+              <item.icon className="size-4" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[13.5px] font-semibold">{item.label}</span>
+              <span className="block truncate text-[11.5px] text-subtle">{item.hint}</span>
+            </span>
+          </Link>
+        ))}
+      </nav>
+
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
           <h2 className="text-[22px] font-semibold">{year}</h2>
@@ -86,16 +110,7 @@ export default async function FinanceYearPage({ searchParams }: { searchParams: 
         ))}
       </div>
 
-      <p className="flex items-center gap-1.5 text-[12px] text-subtle">
-        <Settings2 className="size-3.5" />
-        <Link href="/financeiro/cadastros" className="hover:text-foreground hover:underline">
-          Configurações
-        </Link>
-        <span>·</span>
-        <Link href="/financeiro/painel" className="hover:text-foreground hover:underline">
-          Ferramentas avançadas (gráficos, fluxo de caixa, extrato do banco)
-        </Link>
-      </p>
+
     </>
   );
 }

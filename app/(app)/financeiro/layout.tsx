@@ -1,6 +1,7 @@
 import { requireFinance } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { Callout } from "@/components/ui/field";
+import { BackToFinance } from "@/features/finance/back-to-finance";
 
 const MISSING = ["42P01", "PGRST205", "42703", "PGRST204", "42883", "PGRST202"];
 
@@ -24,5 +25,10 @@ export default async function FinanceLayout({ children }: { children: React.Reac
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <BackToFinance />
+      {children}
+    </>
+  );
 }

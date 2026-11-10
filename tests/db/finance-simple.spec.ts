@@ -252,7 +252,7 @@ describe("migrações reaplicáveis", () => {
     const fs = await import("node:fs/promises");
     const path = await import("node:path");
     const dir = path.join(process.cwd(), "supabase", "migrations");
-    for (const file of ["0010_finance_core.sql", "0011_finance_reconciliation.sql", "0012_finance_reports_close.sql", "0013_finance_simple.sql", "0014_finance_month_simple.sql"]) {
+    for (const file of ["0010_finance_core.sql", "0011_finance_reconciliation.sql", "0012_finance_reports_close.sql", "0013_finance_simple.sql", "0014_finance_month_simple.sql", "0015_finance_admin_commissions.sql"]) {
       await db.exec(await fs.readFile(path.join(dir, file), "utf8"));
     }
     const count = await db.query<{ n: number }>(
@@ -284,5 +284,47 @@ describe("controle mensal simplificado (0014)", () => {
     expect((await entry(id)).status).toBe("settled");
     const left = await db.query(`select 1 from public.fin_entries where recurrence_id = $1 and status = 'forecast'`, [recurrence_id]);
     expect(left.rows).toHaveLength(0);
+  });
+});
+
+describe("comissões recebidas em lote (0015)", () => {
+  it("marca como recebidas só as comissões até a data, uma vez só", async () => {
+    const make = async (date: string) =>
+      (
+        await one<{ id: string }>(org.ownerId, `select public.app_save_entry($1::jsonb) as id`, [
+          JSON.stringify({
+            entry_type: "sale", entry_date: date, description: `Venda ${date}`, property_type: "residential",
+            base_amount: 100000, commission_mode: "percentage", commission_rate: 5,
+            splits: [{ broker_id: org.brokerIds[0], split_mode: "percentage", split_rate: 40 }],
+          }),
+        ])
+      ).id;
+    const before = await make("2026-01-15");
+    const after = await make("2026-12-20");
+
+    const result = (
+      await db.query<{ r: { count: number; gross_total: number } }>(
+        `select public.fin_admin_mark_commissions_received($1, '2026-09-30', 'Itaú') as r`,
+        [ownerEmail],
+      )
+    ).rows[0].r;
+    expect(result.count).toBeGreaterThanOrEqual(1);
+
+    const ops = await db.query<{ commission_entry_id: string; reference_date: Date }>(
+      `select commission_entry_id, reference_date from public.fin_operations where cancelled_at is null and commission_entry_id = any($1::uuid[])`,
+      [[before, after]],
+    );
+    expect(ops.rows.map((row) => row.commission_entry_id)).toEqual([before]);
+    expect(new Date(ops.rows[0].reference_date).toISOString().slice(0, 10)).toBe("2026-01-15");
+
+    const again = (
+      await db.query<{ r: { count: number } }>(`select public.fin_admin_mark_commissions_received($1, '2026-09-30') as r`, [ownerEmail])
+    ).rows[0].r;
+    expect(again.count).toBe(0);
+  });
+
+  it("usuário autenticado não executa", async () => {
+    const message = await expectError(rpc(org.ownerId, `select public.fin_admin_mark_commissions_received($1, '2026-09-30')`, [ownerEmail]));
+    expect(message).toMatch(/permission denied|permissão/i);
   });
 });

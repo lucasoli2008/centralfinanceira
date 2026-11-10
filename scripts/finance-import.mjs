@@ -8,6 +8,7 @@
  *   node scripts/finance-import.mjs lote.json                  # prévia, não grava nada
  *   node scripts/finance-import.mjs lote.json --aplicar        # grava o lote inteiro
  *   node scripts/finance-import.mjs --desfazer <lote> --motivo "texto com 10+ caracteres"
+ *   node scripts/finance-import.mjs --comissoes-ate 2026-09-30 [--conta Itaú]   # marca vendas/locações como recebidas
  *
  * Opções: --email <login do usuário> (padrão: dono da conta) · --rotulo "Papéis de novembro"
  *
@@ -61,6 +62,14 @@ const money = (value) => Number(value).toLocaleString("pt-BR", { style: "currenc
 async function main() {
   const env = readEnv();
   const email = arg("--email") ?? DEFAULT_EMAIL;
+
+  const until = arg("--comissoes-ate");
+  if (until) {
+    const result = await rpc(env, "fin_admin_mark_commissions_received", { p_user_email: email, p_until: until, p_account_name: arg("--conta") ?? null });
+    console.log(`${result.count} comissão(ões) marcadas como recebidas · bruto ${money(result.gross_total)}`);
+    if (result.skipped?.length) console.log(`Ficaram de fora (exceção financeira): ${result.skipped.map((item) => item.description).join("; ")}`);
+    return;
+  }
 
   const undo = arg("--desfazer");
   if (undo) {
